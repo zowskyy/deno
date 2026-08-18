@@ -4,14 +4,10 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
 import threading
 from typing import Literal
 
-
-def _run(command: list[str], timeout: int = 120) -> tuple[int, str, str]:
-    result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
-    return result.returncode, result.stdout.strip(), result.stderr.strip()
+from .shell import run_command as _run
 
 
 def _parse_ping_output(stdout: str) -> dict:
@@ -55,9 +51,9 @@ def _parse_ping_output(stdout: str) -> dict:
 def probe_ping(target: str, count: int = 20, deadline: int = 30) -> dict:
     """Ping *target* *count* times and return RTT statistics."""
     command = ["ping", "-c", str(count), "-W", "2", "-i", "0.2", target]
-    try:
-        rc, stdout, stderr = _run(command, timeout=deadline + 5)
-    except subprocess.TimeoutExpired:
+    rc, stdout, stderr = _run(command, timeout=deadline + 5)
+
+    if rc in (124, 127):
         return {
             "target": target,
             "success": False,
@@ -65,7 +61,7 @@ def probe_ping(target: str, count: int = 20, deadline: int = 30) -> dict:
             "p95_ms": None,
             "loss_percent": 100.0,
             "samples": 0,
-            "error": "timeout",
+            "error": stderr or "ping failed",
         }
 
     result = _parse_ping_output(stdout)

@@ -30,9 +30,13 @@ dev = [
 
 [project.scripts]
 gateway-probe = "probe.cli:main"
+gateway-probe-serve = "probe.api:main"
+gateway-probe-compare = "probe.compare:main"
+gateway-probe-safety = "probe.safety:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["probe"]
+artifacts = ["probe/static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gateway-probe dashboard</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 2rem;
+    background: Canvas;
+    color: CanvasText;
+  }
+  h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
+  h2 { font-size: 1rem; margin: 2rem 0 0.75rem; }
+  .subtitle { opacity: 0.6; margin-bottom: 1.5rem; font-size: 0.875rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+  .card { border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 8px; padding: 1rem; }
+  .card .label { font-size: 0.75rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card .value { font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem; }
+  .card .sub { font-size: 0.75rem; opacity: 0.6; margin-top: 0.25rem; }
+  .ok { color: #16a34a; }
+  .warn { color: #d97706; }
+  .bad { color: #dc2626; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent); }
+  ul.findings { list-style: none; margin: 0; padding: 0; }
+  ul.findings li {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+    border-radius: 6px;
+  }
+  .confidence { opacity: 0.6; font-size: 0.8em; }
+  #status { font-size: 0.8rem; opacity: 0.6; margin-top: 2rem; }
+  code { background: color-mix(in srgb, CanvasText 10%, transparent); padding: 0.1rem 0.3rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>gateway-probe</h1>
+  <div class="subtitle">Read-only diagnostics — observes and recommends, never changes firewall or QoS settings.</div>
+
+  <div id="latest">Loading…</div>
+
+  <h2>History</h2>
+  <table id="history">
+    <thead><tr><th>Time</th><th>Mode</th><th>Interface</th><th>Findings</th><th>Top finding</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <p id="status"></p>
+
+<script>
+const REFRESH_MS = 5000;
+
+function statusClass(ok) { return ok ? "ok" : "bad"; }
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML;
+}
+
+function renderLatest(report) {
+  const el = document.getElementById("latest");
+  if (!report || report.error) {
+    el.innerHTML = "<p>No reports yet. Run <code>gateway-probe --store report.db</code> to collect one.</p>";
+    return;
+  }
+  const iface = report.interface || {};
+  const routing = report.routing || {};
+  const latency = report.latency || {};
+  const dns = report.dns || {};
+  const qdisc = report.qdisc || {};
+  const findings = report.findings || [];
+
+  const lossVal = latency.loss_percent;
+  const cards = [
+    { label: "Interface", value: esc(iface.name || "?"), cls: iface.carrier ? "ok" : "bad" },
+    { label: "Default route", value: routing.default_route_present ? "present" : "missing", cls: statusClass(routing.default_route_present) },
+    { label: "Gateway RTT p95", value: (latency.gateway_p95_ms ?? "—") + " ms", cls: "" },
+    { label: "Public RTT p95", value: (latency.public_p95_ms ?? "—") + " ms", cls: "" },
+    { label: "Packet loss", value: (lossVal ?? "—") + "%", cls: (lossVal ?? 0) > 5 ? "bad" : "ok" },
+    { label: "DNS", value: dns.success ? "ok" : "failed", cls: statusClass(dns.success) },
+    { label: "CAKE", value: qdisc.cake_detected ? "active" : "not detected", cls: qdisc.cake_detected ? "ok" : "warn" },
+  ];
+
+  let html = '<div class="grid">' + cards.map(c =>
+    `<div class="card"><div class="label">${esc(c.label)}</div><div class="value ${c.cls}">${c.value}</div></div>`
+  ).join("") + "</div>";
+
+  html += "<h2>Findings</h2>";
+  if (findings.length === 0) {
+    html += "<p class='ok'>No significant issues detected.</p>";
+  } else {
+    html += "<ul class='findings'>" + findings.map(f =>
+      `<li><strong>${esc(f.category)}</strong> <span class="confidence">(${Math.round(f.confidence * 100)}% confidence)</span><br>${esc(f.reason)}</li>`
+    ).join("") + "</ul>";
+  }
+
+  el.innerHTML = html;
+}
+
+function renderHistory(rows) {
+  const tbody = document.querySelector("#history tbody");
+  if (!Array.isArray(rows)) { tbody.innerHTML = ""; return; }
+  tbody.innerHTML = rows.map(r =>
+    `<tr><td>${esc(r.timestamp)}</td><td>${esc(r.mode)}</td><td>${esc(r.wan_interface)}</td><td>${esc(r.finding_count)}</td><td>${esc(r.top_finding_category || "—")}</td></tr>`
+  ).join("");
+}
+
+async function refresh() {
+  try {
+    const [latestRes, historyRes] = await Promise.all([
+      fetch("/api/reports/latest"),
+      fetch("/api/reports"),
+    ]);
+    renderLatest(await latestRes.json());
+    renderHistory(await historyRes.json());
+    document.getElementById("status").textContent = "Updated " + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById("status").textContent = "Connection error: " + e;
+  }
+}
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>

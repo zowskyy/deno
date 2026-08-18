@@ -3,13 +3,9 @@
 import re
 import shutil
 import socket
-import subprocess
 import time
 
-
-def _run(command: list[str]) -> tuple[int, str, str]:
-    result = subprocess.run(command, capture_output=True, text=True, timeout=15)
-    return result.returncode, result.stdout.strip(), result.stderr.strip()
+from .shell import run_command as _run
 
 
 def _parse_dig_time(stdout: str) -> float | None:

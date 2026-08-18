@@ -73,6 +73,23 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Number of pings in idle mode (default: 60).",
     )
     parser.add_argument(
+        "--idle-baseline-p95",
+        type=float,
+        default=None,
+        metavar="MS",
+        help=(
+            "Idle public RTT p95 (ms) from a prior idle run, used to compute "
+            "latency.delta_rtt_p95_ms within a single loaded-mode run. "
+            "For a rigorous two-run comparison use gateway-probe-compare instead."
+        ),
+    )
+    parser.add_argument(
+        "--store",
+        metavar="FILE",
+        default=None,
+        help="SQLite event-store file to append this report to (optional).",
+    )
+    parser.add_argument(
         "--output",
         metavar="FILE",
         default=None,
@@ -132,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
         duration=args.duration,
         idle_ping_count=args.idle_pings,
         dns_hostname=args.dns_hostname,
+        idle_baseline_p95_ms=args.idle_baseline_p95,
     )
 
     indent = 2 if args.pretty else None
@@ -142,6 +160,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[gateway-probe] report written to {args.output}", file=sys.stderr)
     else:
         print(text)
+
+    if args.store:
+        from .store import open_store, save_report
+
+        conn = open_store(args.store)
+        row_id = save_report(conn, report)
+        conn.close()
+        print(f"[gateway-probe] report #{row_id} saved to {args.store}", file=sys.stderr)
 
     # Print findings summary to stderr
     findings = report.get("findings", [])

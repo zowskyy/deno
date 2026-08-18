@@ -1,12 +1,8 @@
 """Routing table inspection."""
 
 import re
-import subprocess
 
-
-def _run(command: list[str]) -> tuple[int, str, str]:
-    result = subprocess.run(command, capture_output=True, text=True, timeout=15)
-    return result.returncode, result.stdout.strip(), result.stderr.strip()
+from .shell import run_command as _run
 
 
 def get_default_gateway() -> str | None:

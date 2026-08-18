@@ -3,8 +3,11 @@
 Read-only network diagnostic tool for OpenWrt / Linux gateways.
 
 Measures link state, routing, DNS, latency (idle and load-tested), and CAKE
-qdisc statistics. Produces a structured JSON report and a deterministic list
-of findings. **No configuration is changed automatically.**
+qdisc statistics. Produces a structured JSON report, a deterministic list of
+findings, a persisted history, and a local dashboard. **No configuration is
+changed automatically** — the probe only observes and recommends. A separate,
+explicitly-invoked safety wrapper exists for supervised QoS changes with an
+automatic timed rollback (see below); it is never called by the probe itself.
 
 ## Quick start
 
@@ -14,7 +17,7 @@ pip install -e ".[dev]"
 # Auto-discover WAN interface, probe in idle mode
 gateway-probe --target 1.1.1.1 --dns-server 1.1.1.1
 
-# Specify everything explicitly and write a report file
+# Specify everything explicitly, write a report file, and persist to history
 gateway-probe \
   --wan-interface eth0.2 \
   --gateway 192.168.12.1 \
@@ -22,7 +25,8 @@ gateway-probe \
   --target 1.1.1.1 \
   --mode idle \
   --idle-pings 60 \
-  --output report.json
+  --output report.json \
+  --store report.db
 ```
 
 ## Loaded-latency testing
@@ -36,7 +40,8 @@ gateway-probe \
   --iperf-server 192.168.1.100 \
   --duration 30 \
   --target 1.1.1.1 \
-  --output upload-loaded.json
+  --output upload-loaded.json \
+  --store report.db
 
 # Download-loaded
 gateway-probe \
@@ -44,11 +49,58 @@ gateway-probe \
   --iperf-server 192.168.1.100 \
   --duration 30 \
   --target 1.1.1.1 \
-  --output download-loaded.json
+  --output download-loaded.json \
+  --store report.db
 ```
 
-The `delta_rtt_p95_ms` field in the latency section shows queue delay induced
-by the traffic. A large delta (>50 ms) indicates bufferbloat.
+### Before/after comparison
+
+For a rigorous before/after measurement, run one probe in `--mode idle` and
+one in a loaded mode, then compare the two reports:
+
+```sh
+gateway-probe --mode idle --idle-pings 60 --output idle.json
+gateway-probe --mode upload-loaded --iperf-server 192.168.1.100 --duration 30 --output loaded.json
+
+gateway-probe-compare idle.json loaded.json
+```
+
+```text
+Upload queue delay:
+165 ms loaded (baseline 15 ms idle)
+Delta (queue delay): 150 ms
+
+Interpretation:
+Strong evidence of local or near-local bufferbloat; enabling CAKE on
+the WAN egress qdisc is recommended.
+```
+
+Alternatively, pass `--idle-baseline-p95 <ms>` to a single loaded-mode
+`gateway-probe` run to compute `latency.delta_rtt_p95_ms` inline, without a
+separate compare step.
+
+## Dashboard and API
+
+Every report can be persisted to a local SQLite event store with `--store`.
+Serve that history as a read-only JSON API plus a simple browser dashboard:
+
+```sh
+gateway-probe-serve --store report.db --port 8734
+# open http://<gateway-ip>:8734/
+```
+
+Endpoints (all `GET`, all read-only — no mutating routes exist):
+
+| Endpoint | Returns |
+|---|---|
+| `/` | Dashboard HTML (auto-refreshes every 5s) |
+| `/api/reports` | Recent report summaries, newest first |
+| `/api/reports/latest` | Full most-recent report |
+| `/api/reports/<id>` | Full report by id |
+
+The API/dashboard process only *reads* the store; it never runs probes
+itself and never touches network configuration. Stopping it has no effect
+on traffic forwarding or on any in-progress probe.
 
 ## Report structure
 
@@ -72,7 +124,7 @@ See `schemas/probe-report.schema.json` for the full JSON Schema.
 ## Diagnostic classifier
 
 Every report includes a `findings` list of deterministic rule-based
-diagnostics. Example categories:
+diagnostics — no ML. Example categories:
 
 | Category | Meaning |
 |---|---|
@@ -87,27 +139,68 @@ diagnostics. Example categories:
 | `packet_loss` | Loss > 5% |
 | `cake_drops` | CAKE drop counter is high |
 
+## QoS safety wrapper (opt-in, standalone)
+
+`probe/safety.py` implements the timed-rollback pattern for applying a new
+SQM/CAKE configuration:
+
+1. Save the current UCI `sqm` config.
+2. Apply the proposed config.
+3. Check gateway reachability; roll back immediately on failure.
+4. Check WAN reachability; roll back immediately on failure.
+5. Otherwise, arm a timer: if `--confirm-file` is not touched within
+   `--confirm-timeout` seconds, the old config is restored automatically.
+
+```sh
+gateway-probe-safety apply \
+  --backup /root/sqm-backup.uci \
+  --new-config /root/sqm-proposed.uci \
+  --gateway 192.168.12.1 \
+  --target 1.1.1.1 \
+  --confirm-timeout 120 \
+  --confirm-file /tmp/gateway-probe-confirm
+```
+
+This module is **never imported by `probe.api` or `probe.cli`** — it runs as
+its own process on purpose, so the rollback watchdog keeps working even if
+the dashboard crashes. All I/O (config save/apply, reachability checks) is
+injectable, which is how `tests/test_safety.py` verifies the rollback and
+confirmation logic without touching real `uci` or the network.
+
 ## Repository layout
 
 ```
 gateway-probe/
 ├── probe/
 │   ├── __init__.py
-│   ├── cli.py          # argparse entry point
-│   ├── discovery.py    # auto-detect WAN interface
-│   ├── interfaces.py   # link state
-│   ├── routes.py       # routing table
-│   ├── dns.py          # DNS probes
-│   ├── latency.py      # ping + iperf3
-│   ├── qdisc.py        # CAKE / tc stats
-│   ├── classifier.py   # deterministic findings
-│   └── report.py       # assembles everything
+│   ├── cli.py           # argparse entry point (gateway-probe)
+│   ├── discovery.py     # auto-detect WAN interface
+│   ├── interfaces.py    # link state
+│   ├── routes.py        # routing table
+│   ├── dns.py           # DNS probes
+│   ├── latency.py       # ping + iperf3
+│   ├── qdisc.py         # CAKE / tc stats
+│   ├── classifier.py    # deterministic findings
+│   ├── report.py        # assembles everything into one report
+│   ├── store.py         # SQLite event store (gateway-probe --store)
+│   ├── api.py           # read-only HTTP API + dashboard (gateway-probe-serve)
+│   ├── compare.py        # idle-vs-loaded delta tool (gateway-probe-compare)
+│   ├── safety.py         # QoS timed-rollback wrapper (gateway-probe-safety)
+│   ├── shell.py          # subprocess helper that never crashes on missing tools
+│   └── static/
+│       └── dashboard.html
 ├── schemas/
 │   └── probe-report.schema.json
 ├── tests/
 │   ├── test_classification.py
+│   ├── test_compare.py
+│   ├── test_store.py
+│   ├── test_api.py
+│   ├── test_safety.py
+│   ├── test_shell.py
 │   └── fixtures/
 │       └── sample_report.json
+├── reports/              # default place to keep ad-hoc report.json / report.db files
 └── pyproject.toml
 ```
 
@@ -125,14 +218,26 @@ pytest
 - [x] Reports DNS success or failure
 - [x] Captures CAKE statistics
 - [x] Produces JSON reports
-- [x] Distinguishes at least four injected failures (link, route, DNS, WAN)
-- [x] Demonstrates before/after latency under upload load via `delta_rtt_p95_ms`
-- [ ] Safe rollback for QoS changes (Phase 2 — tool is read-only in Phase 1)
-- [x] Continues forwarding traffic if probe stops (probe is read-only; no daemon required)
-- [x] Uses no cloud service
+- [x] Distinguishes at least four injected failures (link, route, DNS, WAN) —
+      see `tests/test_classification.py`
+- [x] Demonstrates before/after latency under upload load —
+      `gateway-probe-compare` and `--idle-baseline-p95`
+- [x] Safely rolls back an invalid QoS configuration —
+      `probe/safety.py` + `tests/test_safety.py` (opt-in, never auto-invoked)
+- [x] Continues forwarding traffic if the dashboard process stops — the
+      dashboard/API (`probe.api`) only reads the store; it never touches
+      routing, firewall, or QoS state, and the safety wrapper runs as an
+      independent process from the dashboard
+- [x] Uses no cloud service — everything is local: stdlib HTTP server,
+      SQLite file, and user-chosen ping/iperf3 targets
 
 ## Constraints
 
-- **Read-only**: Phase 1 makes no configuration changes.
-- **No cloud**: all measurements are local or to user-chosen targets.
+- **Read-only by default**: the probe (`gateway-probe`) and dashboard
+  (`gateway-probe-serve`) never change configuration.
+- **QoS changes are opt-in and supervised**: only `gateway-probe-safety`,
+  invoked explicitly, can change SQM config, and only with a verified,
+  timed rollback.
+- **No cloud**: all measurements are local or to user-chosen targets; the
+  dashboard is a stdlib `http.server`, the store is a local SQLite file.
 - **No ML**: the classifier uses deterministic rules, testable in isolation.

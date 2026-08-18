@@ -28,8 +28,15 @@ def build_report(
     idle_ping_count: int = 60,
     dns_hostname: str = "example.com",
     dns_samples: int = 5,
+    idle_baseline_p95_ms: float | None = None,
 ) -> dict:
-    """Collect all probe data and return a complete, normalized report."""
+    """Collect all probe data and return a complete, normalized report.
+
+    If *idle_baseline_p95_ms* is given for a loaded *mode*, the report's
+    latency.delta_rtt_p95_ms is computed against that baseline in this same
+    run. For a rigorous before/after comparison across two separate runs,
+    use `gateway-probe-compare` instead.
+    """
 
     iface = get_link_state(wan_interface)
     routing = get_route_table()
@@ -45,6 +52,13 @@ def build_report(
         duration=duration,
         ping_count=idle_ping_count if mode == "idle" else None,
     )
+
+    if (
+        mode != "idle"
+        and idle_baseline_p95_ms is not None
+        and latency.get("public_p95_ms") is not None
+    ):
+        latency["delta_rtt_p95_ms"] = round(latency["public_p95_ms"] - idle_baseline_p95_ms, 2)
 
     dns = probe_dns(
         hostname=dns_hostname,
