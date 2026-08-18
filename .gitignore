@@ -8,3 +8,4 @@ build/
 .coverage
 htmlcov/
 reports/*.json
+gateway-probe-complete.zip
