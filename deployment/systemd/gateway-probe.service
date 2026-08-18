@@ -1,0 +1,26 @@
+[Unit]
+Description=Gateway Probe local diagnostics
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/zowskyy/gateway-probe
+
+[Service]
+Type=oneshot
+User=gateway-probe
+Group=gateway-probe
+ExecStart=/usr/local/bin/gateway-probe idle \
+  --config /etc/gateway-probe/config.toml \
+  --store /var/lib/gateway-probe/reports.db
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gateway-probe
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gateway-probe
+
+[Install]
+WantedBy=multi-user.target

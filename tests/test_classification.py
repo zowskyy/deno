@@ -42,14 +42,14 @@ class TestLinkFailure:
         report = _base_report()
         report["interface"]["carrier"] = False
         cats = _categories(report)
-        assert "physical_link" in cats
+        assert "physical_link_unavailable" in cats
 
     def test_physical_link_has_highest_confidence(self):
         report = _base_report()
         report["interface"]["carrier"] = False
         findings = classify(report)
         top = findings[0]
-        assert top["category"] == "physical_link"
+        assert top["category"] == "physical_link_unavailable"
         assert top["confidence"] >= 0.99
 
 
@@ -63,7 +63,7 @@ class TestMissingRoute:
         report["routing"]["default_route_present"] = False
         report["routing"]["gateway"] = None
         cats = _categories(report)
-        assert "address_configuration" in cats
+        assert "default_route_missing" in cats
 
 
 # --------------------------------------------------------------------------- #
@@ -76,16 +76,16 @@ class TestDnsFailure:
         report["dns"]["success"] = False
         report["dns"]["error"] = "SERVFAIL"
         cats = _categories(report)
-        assert "dns" in cats
+        assert "dns_resolution_failed" in cats
 
     def test_dns_finding_mentions_hostname(self):
         report = _base_report()
         report["dns"]["success"] = False
         report["dns"]["error"] = "timeout"
         findings = classify(report)
-        dns_findings = [f for f in findings if f["category"] == "dns"]
+        dns_findings = [f for f in findings if f["category"] == "dns_resolution_failed"]
         assert dns_findings
-        assert "example.com" in dns_findings[0]["reason"]
+        assert "example.com" in dns_findings[0]["interpretation"]
 
 
 # --------------------------------------------------------------------------- #
@@ -98,7 +98,7 @@ class TestWanFailure:
         report["latency"]["success"] = False
         report["latency"]["gateway_p95_ms"] = 2.1  # gateway still responds
         cats = _categories(report)
-        assert "wan_or_upstream" in cats
+        assert "public_path_probe_failed" in cats
 
     def test_wan_failure_without_gateway_raises_full_connectivity_finding(self):
         report = _base_report()
@@ -116,23 +116,26 @@ class TestBufferbloat:
     def test_large_delta_rtt_without_cake_raises_bufferbloat_no_cake(self):
         report = _base_report()
         report["latency"]["delta_rtt_p95_ms"] = 150.0
+        report["latency"]["load_validation"] = {"valid_for_wan_comparison": True}
         report["qdisc"]["cake_detected"] = False
         cats = _categories(report)
-        assert "bufferbloat_no_cake" in cats
+        assert "latency_increased_with_cake_not_detected" in cats
 
     def test_large_delta_rtt_with_cake_raises_bufferbloat_with_cake(self):
         report = _base_report()
         report["latency"]["delta_rtt_p95_ms"] = 80.0
+        report["latency"]["load_validation"] = {"valid_for_wan_comparison": True}
         report["qdisc"]["cake_detected"] = True
         cats = _categories(report)
-        assert "bufferbloat_with_cake" in cats
+        assert "latency_increased_while_cake_traffic_observed" in cats
 
     def test_small_delta_rtt_produces_no_bufferbloat_finding(self):
         report = _base_report()
         report["latency"]["delta_rtt_p95_ms"] = 10.0
+        report["latency"]["load_validation"] = {"valid_for_wan_comparison": True}
         cats = _categories(report)
-        assert "bufferbloat_no_cake" not in cats
-        assert "bufferbloat_with_cake" not in cats
+        assert "latency_increased_with_cake_not_detected" not in cats
+        assert "latency_increased_while_cake_traffic_observed" not in cats
 
 
 # --------------------------------------------------------------------------- #
@@ -146,8 +149,8 @@ class TestMultipleFailures:
         report["dns"]["success"] = False
         report["dns"]["error"] = "timeout"
         cats = _categories(report)
-        assert "physical_link" in cats
-        assert "dns" in cats
+        assert "physical_link_unavailable" in cats
+        assert "dns_resolution_failed" in cats
 
     def test_findings_sorted_by_descending_confidence(self):
         report = _base_report()
@@ -168,10 +171,10 @@ class TestPacketLoss:
         report = _base_report()
         report["latency"]["loss_percent"] = 15.0
         cats = _categories(report)
-        assert "packet_loss" in cats
+        assert "packet_loss_observed" in cats
 
     def test_low_loss_does_not_raise_finding(self):
         report = _base_report()
         report["latency"]["loss_percent"] = 2.0
         cats = _categories(report)
-        assert "packet_loss" not in cats
+        assert "packet_loss_observed" not in cats

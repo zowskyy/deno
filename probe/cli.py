@@ -107,11 +107,33 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_false",
         help="Emit compact JSON.",
     )
+    parser.add_argument(
+        "--config",
+        metavar="FILE",
+        default=None,
+        help="Load configuration from TOML file (optional).",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+
+    # Load configuration file if provided
+    if args.config:
+        from .config import GatewayProbeConfig
+        cfg = GatewayProbeConfig.from_toml(args.config)
+        # Command-line args override config file
+        if not args.target and cfg.probe.target:
+            args.target = cfg.probe.target
+        if not args.dns_server and cfg.probe.dns_server:
+            args.dns_server = cfg.probe.dns_server
+        if not args.wan_interface and cfg.probe.wan_interface:
+            args.wan_interface = cfg.probe.wan_interface
+        if not args.gateway and cfg.probe.gateway:
+            args.gateway = cfg.probe.gateway
+        if not args.iperf_server and cfg.latency.iperf_server:
+            args.iperf_server = cfg.latency.iperf_server
 
     # Auto-discover WAN interface
     wan_interface = args.wan_interface
@@ -175,7 +197,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n[gateway-probe] {len(findings)} finding(s):", file=sys.stderr)
         for f in findings:
             pct = int(f["confidence"] * 100)
-            print(f"  [{pct}%] {f['category']}: {f['reason']}", file=sys.stderr)
+            msg = f.get("interpretation", f.get("reason", "unknown"))
+            print(f"  [{pct}%] {f['category']}: {msg}", file=sys.stderr)
     else:
         print("[gateway-probe] no significant issues detected.", file=sys.stderr)
 

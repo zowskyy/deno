@@ -32,7 +32,14 @@
     "loss_percent": 0.0,
     "samples": 60,
     "loaded_throughput_mbps": null,
-    "delta_rtt_p95_ms": null
+    "delta_rtt_p95_ms": null,
+    "load_validation": {
+      "requested_direction": null,
+      "load_source": null,
+      "iperf_reported_throughput_mbps": null,
+      "valid_for_wan_comparison": true,
+      "limitations": []
+    }
   },
   "dns": {
     "server": "1.1.1.1",

@@ -1,17 +1,18 @@
 """Deterministic rule-based diagnostic classifier.
 
 Evaluates a normalized probe report and returns a list of findings ordered
-from highest to lowest confidence.  No ML; every rule is inspectable and
+from highest to lowest confidence. Evidence-based language: findings describe
+measured facts, not root-cause verdicts. No ML; every rule is inspectable and
 testable in isolation.
 """
 
 from __future__ import annotations
 
-BUFFERBLOAT_THRESHOLD_MS = 50  # delta RTT that warrants a bufferbloat finding
+LATENCY_INCREASE_THRESHOLD_MS = 50
 
 
 def classify(report: dict) -> list[dict]:
-    """Return a list of findings for *report*."""
+    """Return a list of findings for *report*, ordered by confidence."""
     findings: list[dict] = []
 
     iface = report.get("interface", {})
@@ -20,126 +21,159 @@ def classify(report: dict) -> list[dict]:
     dns = report.get("dns", {})
     qdisc = report.get("qdisc", {})
 
-    # --- Physical link ---
+    # --- Physical link unavailable ---
     if not iface.get("carrier", True):
         findings.append({
-            "category": "physical_link",
+            "category": "physical_link_unavailable",
             "confidence": 0.99,
-            "reason": (
-                f"WAN interface '{iface.get('name', '?')}' has no carrier. "
-                "Check the physical cable and the upstream port."
-            ),
+            "evidence": {
+                "interface": iface.get("name", "?"),
+                "carrier": iface.get("carrier", False),
+            },
+            "interpretation": f"WAN interface '{iface.get('name', '?')}' reports no carrier.",
         })
 
-    # --- Default route ---
+    # --- Default route missing ---
     if not routing.get("default_route_present", True):
         findings.append({
-            "category": "address_configuration",
+            "category": "default_route_missing",
             "confidence": 0.98,
-            "reason": (
-                "No default route is installed. "
-                "The DHCP lease may have expired or was never obtained."
-            ),
+            "evidence": {
+                "default_route_present": routing.get("default_route_present", False),
+            },
+            "interpretation": "No default route is installed. DHCP may have failed or the lease expired.",
         })
 
-    # --- Gateway reachability ---
+    # --- Next hop probe failed ---
     gw_p95 = latency.get("gateway_p95_ms")
-    if gw_p95 is None and latency.get("gateway_target"):
+    gw_target = latency.get("gateway_target")
+    if gw_p95 is None and gw_target:
         findings.append({
-            "category": "gateway_or_local_network",
+            "category": "next_hop_probe_failed",
             "confidence": 0.90,
-            "reason": (
-                f"Gateway {latency.get('gateway_target')} did not respond to pings. "
-                "Possible CPE issue or misconfigured gateway address."
-            ),
+            "evidence": {
+                "gateway_target": gw_target,
+                "gateway_p95_ms": gw_p95,
+            },
+            "interpretation": f"The gateway at {gw_target} did not respond to pings.",
         })
 
-    # --- DNS ---
+    # --- DNS transport or resolver failed ---
     if not dns.get("success", True):
         findings.append({
-            "category": "dns",
+            "category": "dns_resolution_failed",
             "confidence": 0.85,
-            "reason": (
+            "evidence": {
+                "hostname": dns.get("hostname", "?"),
+                "server": dns.get("server") or "system resolver",
+                "error": dns.get("error", "unknown error"),
+            },
+            "interpretation": (
                 f"DNS lookup for '{dns.get('hostname', '?')}' via "
-                f"{dns.get('server') or 'system resolver'} failed: "
-                f"{dns.get('error') or 'unknown error'}."
+                f"{dns.get('server') or 'system resolver'} did not succeed."
             ),
         })
 
-    # --- WAN / public connectivity ---
-    if not latency.get("success", True) and latency.get("gateway_p95_ms") is not None:
+    # --- Public path probe failed (but local ok) ---
+    if not latency.get("success", True) and gw_p95 is not None:
         findings.append({
-            "category": "wan_or_upstream",
+            "category": "public_path_probe_failed",
             "confidence": 0.75,
-            "reason": (
-                f"Public target {latency.get('target', '?')} is unreachable "
-                "but the local gateway responded. "
-                "Likely an ISP or upstream path issue."
+            "evidence": {
+                "target": latency.get("target", "?"),
+                "gateway_reachable": True,
+                "public_reachable": False,
+            },
+            "interpretation": (
+                f"Public target {latency.get('target', '?')} is unreachable but "
+                "the local gateway responded. This indicates an ISP or upstream path issue."
             ),
         })
-    elif not latency.get("success", True) and latency.get("gateway_p95_ms") is None:
+
+    # --- Full connectivity loss ---
+    elif not latency.get("success", True) and gw_p95 is None:
         findings.append({
             "category": "full_connectivity_loss",
             "confidence": 0.80,
-            "reason": (
+            "evidence": {
+                "gateway_reachable": False,
+                "public_reachable": False,
+            },
+            "interpretation": (
                 "Both the gateway and public target are unreachable. "
                 "Check physical link, DHCP, and gateway configuration."
             ),
         })
 
-    # --- CAKE / bufferbloat ---
+    # --- Latency increased under confirmed load ---
     cake = qdisc.get("cake_detected", False)
     delta = latency.get("delta_rtt_p95_ms")
+    mode = latency.get("mode", "")
+    load_valid = latency.get("load_validation", {}).get("valid_for_wan_comparison", False)
 
-    if delta is not None and delta > BUFFERBLOAT_THRESHOLD_MS:
+    if delta is not None and delta > LATENCY_INCREASE_THRESHOLD_MS and load_valid:
         if cake:
             findings.append({
-                "category": "bufferbloat_with_cake",
+                "category": "latency_increased_while_cake_traffic_observed",
                 "confidence": 0.70,
-                "reason": (
-                    f"CAKE is active but loaded RTT p95 is still {delta:.0f} ms above idle RTT. "
-                    "Consider lowering the CAKE bandwidth limit closer to the actual line rate."
+                "evidence": {
+                    "idle_rtt_p95_ms": latency.get("public_p95_ms"),
+                    "loaded_rtt_p95_ms": latency.get("public_p95_ms"),
+                    "delta_ms": delta,
+                    "cake_detected": cake,
+                },
+                "interpretation": (
+                    f"Public-target latency increased by {delta:.0f} ms during a confirmed load test, "
+                    "despite a detected CAKE qdisc. This may indicate the bandwidth limit is set too aggressively."
                 ),
             })
         else:
             findings.append({
-                "category": "bufferbloat_no_cake",
+                "category": "latency_increased_with_cake_not_detected",
                 "confidence": 0.88,
-                "reason": (
-                    f"Loaded RTT p95 is {delta:.0f} ms above idle RTT and CAKE is not detected. "
-                    "Enabling CAKE on the WAN egress qdisc is strongly recommended."
+                "evidence": {
+                    "idle_rtt_p95_ms": latency.get("public_p95_ms"),
+                    "loaded_rtt_p95_ms": latency.get("public_p95_ms"),
+                    "delta_ms": delta,
+                    "cake_detected": cake,
+                },
+                "interpretation": (
+                    f"Public-target latency increased by {delta:.0f} ms during a confirmed load test "
+                    "and CAKE is not detected. Enabling CAKE on the WAN egress qdisc may reduce queueing."
                 ),
             })
 
     # --- High packet loss ---
     loss = latency.get("loss_percent")
-    if loss is not None and loss > 5:
+    if loss is not None and loss > 5.0:
         findings.append({
-            "category": "packet_loss",
+            "category": "packet_loss_observed",
             "confidence": 0.82,
-            "reason": f"Packet loss is {loss:.1f}%, which exceeds the 5% threshold.",
+            "evidence": {
+                "loss_percent": loss,
+                "threshold_percent": 5.0,
+            },
+            "interpretation": f"Packet loss is {loss:.1f}%, exceeding the 5% threshold.",
         })
 
-    # CAKE drop / mark counters
+    # --- CAKE queue management events ---
     if cake:
         drops = qdisc.get("drops") or 0
         marks = qdisc.get("marks") or 0
-        if drops > 100:
+
+        if drops > 100 or marks > 100:
             findings.append({
-                "category": "cake_drops",
+                "category": "cake_aqm_events_observed",
                 "confidence": 0.65,
-                "reason": (
-                    f"CAKE has dropped {drops} packets during this probe window. "
-                    "The bandwidth limit may be set too low."
-                ),
-            })
-        if marks > 100:
-            findings.append({
-                "category": "cake_ecn_marks",
-                "confidence": 0.55,
-                "reason": (
-                    f"CAKE has issued {marks} ECN marks. "
-                    "ECN is working; consider whether marks are excessive."
+                "evidence": {
+                    "cake_detected": cake,
+                    "drops": drops,
+                    "marks": marks,
+                    "backlog_bytes": qdisc.get("backlog_bytes"),
+                },
+                "interpretation": (
+                    f"CAKE qdisc issued {drops} drops and {marks} ECN marks during this probe window. "
+                    "This indicates active queue management."
                 ),
             })
 

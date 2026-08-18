@@ -1,0 +1,27 @@
+[Unit]
+Description=Gateway Probe Dashboard API
+After=network.target
+Documentation=https://github.com/zowskyy/gateway-probe
+
+[Service]
+Type=simple
+User=gateway-probe
+Group=gateway-probe
+ExecStart=/usr/local/bin/gateway-probe-serve \
+  --store /var/lib/gateway-probe/reports.db \
+  --port 8734
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gateway-probe-api
+Restart=on-failure
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/gateway-probe
+
+[Install]
+WantedBy=multi-user.target

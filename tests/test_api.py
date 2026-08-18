@@ -46,7 +46,9 @@ class TestReadOnlyEndpoints:
         base_url, _ = running_server
         status, body = _get(base_url + "/api/reports")
         assert status == 200
-        assert body == []
+        assert body["reports"] == []
+        assert "storage" in body
+        assert body["storage"]["retention_status"] == "healthy"
 
     def test_latest_report_reflects_stored_report(self, running_server):
         base_url, db_path = running_server

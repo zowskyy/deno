@@ -50,7 +50,16 @@ def _make_handler(db_path: str) -> type[BaseHTTPRequestHandler]:
                 if path in ("/", "/index.html"):
                     self._send_html((STATIC_DIR / "dashboard.html").read_text())
                 elif path == "/api/reports":
-                    self._send_json(store_mod.list_reports(conn, limit=100))
+                    from .config import RetentionConfig
+                    try:
+                        store_mod.apply_retention(conn, RetentionConfig())
+                    except Exception:
+                        pass
+                    status = store_mod.get_storage_status(conn, db_path)
+                    self._send_json({
+                        "storage": status,
+                        "reports": store_mod.list_reports(conn, limit=100),
+                    })
                 elif path == "/api/reports/latest":
                     report = store_mod.latest_report(conn)
                     if report is None:

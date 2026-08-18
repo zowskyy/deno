@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Gateway Probe every 15 minutes
+Documentation=https://github.com/zowskyy/gateway-probe
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

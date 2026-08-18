@@ -119,6 +119,13 @@ def probe_loaded_latency(
         "samples": 0,
         "loaded_throughput_mbps": None,
         "delta_rtt_p95_ms": None,
+        "load_validation": {
+            "requested_direction": "upload" if mode == "upload-loaded" else "download" if mode == "download-loaded" else None,
+            "load_source": "external_iperf3" if mode != "idle" else None,
+            "iperf_reported_throughput_mbps": None,
+            "valid_for_wan_comparison": mode == "idle",
+            "limitations": [],
+        },
     }
 
     # Gateway ping (always)
@@ -157,12 +164,17 @@ def probe_loaded_latency(
 
     iperf_thread.join(timeout=duration + 30)
 
+    throughput = throughput_holder[0]
     result.update(
         success=pub["success"],
         public_p50_ms=pub.get("p50_ms"),
         public_p95_ms=pub.get("p95_ms"),
         loss_percent=pub.get("loss_percent"),
         samples=pub.get("samples", 0),
-        loaded_throughput_mbps=throughput_holder[0],
+        loaded_throughput_mbps=throughput,
     )
+
+    result["load_validation"]["iperf_reported_throughput_mbps"] = throughput
+    result["load_validation"]["valid_for_wan_comparison"] = throughput is not None and throughput > 5.0
+
     return result
