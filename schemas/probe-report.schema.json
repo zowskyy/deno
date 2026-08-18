@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "probe-report.schema.json",
+  "title": "GatewayProbeReport",
+  "description": "Structured output from a single gateway-probe run.",
+  "type": "object",
+  "required": ["schema_version", "timestamp", "host", "interface", "routing", "latency", "dns", "qdisc", "findings"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semver of the report schema, e.g. '0.1'"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the probe run started."
+    },
+    "host": {
+      "type": "object",
+      "required": ["hostname", "platform"],
+      "properties": {
+        "hostname": { "type": "string" },
+        "platform": { "type": "string" }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "required": ["name", "carrier", "speed_mbps", "rx_errors", "tx_errors"],
+      "properties": {
+        "name": { "type": "string" },
+        "carrier": { "type": "boolean" },
+        "speed_mbps": { "type": ["integer", "null"] },
+        "rx_errors": { "type": "integer" },
+        "tx_errors": { "type": "integer" },
+        "operstate": { "type": "string" }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "required": ["default_route_present", "gateway"],
+      "properties": {
+        "default_route_present": { "type": "boolean" },
+        "gateway": { "type": ["string", "null"] },
+        "routes": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "latency": {
+      "type": "object",
+      "required": ["mode", "target", "success"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["idle", "upload-loaded", "download-loaded"]
+        },
+        "target": { "type": "string" },
+        "gateway_target": { "type": ["string", "null"] },
+        "success": { "type": "boolean" },
+        "gateway_p50_ms": { "type": ["number", "null"] },
+        "gateway_p95_ms": { "type": ["number", "null"] },
+        "public_p50_ms": { "type": ["number", "null"] },
+        "public_p95_ms": { "type": ["number", "null"] },
+        "loss_percent": { "type": ["number", "null"] },
+        "samples": { "type": "integer" },
+        "loaded_throughput_mbps": { "type": ["number", "null"] },
+        "delta_rtt_p95_ms": { "type": ["number", "null"] }
+      }
+    },
+    "dns": {
+      "type": "object",
+      "required": ["server", "success"],
+      "properties": {
+        "server": { "type": ["string", "null"] },
+        "hostname": { "type": "string" },
+        "success": { "type": "boolean" },
+        "query_ms": { "type": ["number", "null"] },
+        "p95_ms": { "type": ["number", "null"] },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "qdisc": {
+      "type": "object",
+      "required": ["interface", "cake_detected"],
+      "properties": {
+        "interface": { "type": "string" },
+        "cake_detected": { "type": "boolean" },
+        "drops": { "type": ["integer", "null"] },
+        "marks": { "type": ["integer", "null"] },
+        "backlog_bytes": { "type": ["integer", "null"] },
+        "raw": { "type": ["string", "null"] }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "confidence", "reason"],
+        "properties": {
+          "category": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

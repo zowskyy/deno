@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.1",
+  "timestamp": "2026-08-18T21:40:00Z",
+  "host": {
+    "hostname": "openwrt",
+    "platform": "Linux-5.15.0-openwrt"
+  },
+  "interface": {
+    "name": "eth0.2",
+    "carrier": true,
+    "operstate": "UP",
+    "speed_mbps": 1000,
+    "rx_errors": 0,
+    "tx_errors": 0
+  },
+  "routing": {
+    "default_route_present": true,
+    "gateway": "192.168.12.1",
+    "routes": [
+      {"prefix": "default", "gateway": "192.168.12.1", "dev": "eth0.2", "raw": "default via 192.168.12.1 dev eth0.2"}
+    ]
+  },
+  "latency": {
+    "mode": "idle",
+    "target": "1.1.1.1",
+    "gateway_target": "192.168.12.1",
+    "success": true,
+    "gateway_p50_ms": 1.2,
+    "gateway_p95_ms": 2.1,
+    "public_p50_ms": 18.4,
+    "public_p95_ms": 22.7,
+    "loss_percent": 0.0,
+    "samples": 60,
+    "loaded_throughput_mbps": null,
+    "delta_rtt_p95_ms": null
+  },
+  "dns": {
+    "server": "1.1.1.1",
+    "hostname": "example.com",
+    "success": true,
+    "query_ms": 20.0,
+    "p95_ms": 22.0,
+    "error": null
+  },
+  "qdisc": {
+    "interface": "eth0.2",
+    "cake_detected": true,
+    "drops": 0,
+    "marks": 0,
+    "backlog_bytes": 0,
+    "raw": "qdisc cake 8001: root refcnt 2 bandwidth 50Mbit ..."
+  },
+  "findings": []
+}
