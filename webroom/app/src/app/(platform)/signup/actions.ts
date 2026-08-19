@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createUser, HandleTakenError, ValidationError } from "@/lib/auth";
 import { defaultPageDocument, savePageDocument } from "@/lib/pageDocument";
+import { checkRateLimit, RateLimitError, rateLimitActorKey } from "@/lib/rateLimit";
 import { logIn } from "@/lib/session";
 
 export interface SignupState {
@@ -16,11 +17,16 @@ export async function signupAction(_prevState: SignupState, formData: FormData):
 
   let userId: string;
   try {
+    const key = await rateLimitActorKey("signup", null);
+    checkRateLimit(key, 5);
     const user = createUser(handle, password);
     userId = user.id;
   } catch (e) {
     if (e instanceof ValidationError || e instanceof HandleTakenError) {
       return { error: e.message };
+    }
+    if (e instanceof RateLimitError) {
+      return { error: "Too many sign-up attempts from this connection. Wait a minute and try again." };
     }
     throw e;
   }

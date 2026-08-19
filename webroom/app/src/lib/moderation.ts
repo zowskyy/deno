@@ -10,6 +10,20 @@ export function ensureModeratorSeed(): void {
   const db = getDb();
   const existing = db.prepare("SELECT id FROM users WHERE is_moderator = 1 LIMIT 1").get();
   if (existing) return;
+
+  const configuredHandle = process.env.WEBROOM_MODERATOR_HANDLE?.trim().toLowerCase();
+  if (configuredHandle) {
+    const user = db
+      .prepare("SELECT id FROM users WHERE handle_lower = ?")
+      .get(configuredHandle) as { id: string } | undefined;
+    if (user) {
+      db.prepare("UPDATE users SET is_moderator = 1 WHERE id = ?").run(user.id);
+    }
+    return;
+  }
+
+  if (process.env.WEBROOM_AUTO_MODERATOR_SEED !== "true") return;
+
   const first = db.prepare("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").get() as { id: string } | undefined;
   if (!first) return;
   db.prepare("UPDATE users SET is_moderator = 1 WHERE id = ?").run(first.id);

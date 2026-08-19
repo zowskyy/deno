@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  canViewPage,
   defaultPageDocument,
   getPageDocument,
   listVersions,
@@ -220,5 +221,39 @@ describe("setPublished / setVisibility", () => {
     savePageDocument(user.id, defaultPageDocument("Void"));
     setVisibility(user.id, "public");
     expect(getPageDocument(user.id)?.visibility).toBe("public");
+  });
+});
+
+describe("canViewPage", () => {
+  it("private published pages are owner-only", () => {
+    const owner = createUser("voidarcade", "correct-horse-battery");
+    const viewer = createUser("neonorchard", "correct-horse-battery");
+    savePageDocument(owner.id, defaultPageDocument("Void"));
+    setPublished(owner.id, true);
+    setVisibility(owner.id, "private");
+    const stored = getPageDocument(owner.id)!;
+
+    expect(canViewPage(stored, owner.id, owner.id)).toBe(true);
+    expect(canViewPage(stored, owner.id, viewer.id)).toBe(false);
+    expect(canViewPage(stored, owner.id, null)).toBe(false);
+  });
+
+  it("unlisted published pages are visible to anyone", () => {
+    const owner = createUser("voidarcade", "correct-horse-battery");
+    savePageDocument(owner.id, defaultPageDocument("Void"));
+    setPublished(owner.id, true);
+    setVisibility(owner.id, "unlisted");
+    const stored = getPageDocument(owner.id)!;
+
+    expect(canViewPage(stored, owner.id, null)).toBe(true);
+  });
+
+  it("unpublished pages are owner-only", () => {
+    const owner = createUser("voidarcade", "correct-horse-battery");
+    savePageDocument(owner.id, defaultPageDocument("Void"));
+    const stored = getPageDocument(owner.id)!;
+
+    expect(canViewPage(stored, owner.id, owner.id)).toBe(true);
+    expect(canViewPage(stored, owner.id, null)).toBe(false);
   });
 });

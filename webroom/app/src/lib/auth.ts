@@ -13,7 +13,7 @@ export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9_-]{1,29}$/;
 const RESERVED_HANDLES = new Set([
   "explore", "make", "studio", "moderation", "api", "admin", "reader", "report",
   "block", "login", "signup", "logout", "settings", "static", "assets",
-  "friends", "guestbook", "webroom", "help", "about", "terms", "privacy",
+  "friends", "guestbook", "webroom", "help", "about", "terms", "privacy", "policy", "appeal",
 ]);
 
 export class ValidationError extends Error {}
@@ -133,6 +133,27 @@ export function authenticate(rawHandle: string, password: string): User {
 
   if (!row || !ok) throw new InvalidCredentialsError();
   if (row.is_blocked_platform) throw new InvalidCredentialsError();
+
+  return { id: row.id, handle: row.handle, createdAt: row.created_at };
+}
+
+/** Verify credentials for a platform-blocked account (appeals only). */
+export function authenticateBlockedForAppeal(rawHandle: string, password: string): User {
+  const handle = rawHandle.trim().toLowerCase();
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT id, handle, password_hash, created_at, is_blocked_platform FROM users WHERE handle_lower = ?",
+    )
+    .get(handle) as
+    | { id: string; handle: string; password_hash: string; created_at: string; is_blocked_platform: number }
+    | undefined;
+
+  const ok = row ? verifyPassword(password, row.password_hash) : verifyPassword(password, DUMMY_HASH);
+  if (!row || !ok) throw new InvalidCredentialsError();
+  if (!row.is_blocked_platform) {
+    throw new ValidationError("This account is not platform-blocked. Log in normally if you have access.");
+  }
 
   return { id: row.id, handle: row.handle, createdAt: row.created_at };
 }

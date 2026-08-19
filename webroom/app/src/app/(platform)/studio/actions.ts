@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { profileScopeClass, scopeProfileCss } from "@/lib/cssScope";
+import { validateProfileCustomCss } from "@/lib/cssScope";
 import {
   discardDraft,
   exportPageData,
   getPageDocument,
-  importPageData,
   PageDocumentValidationError,
+  parsePageDocument,
   publishDraft,
   restoreVersion,
   saveDraftDocument,
@@ -37,15 +37,24 @@ function revalidateOwnerPaths(handle: string) {
   revalidatePath(`/@${handle}`);
 }
 
+function validateDocumentCss(document: PageDocument, handle: string): string | null {
+  if (!document.theme.customCssEnabled || !document.theme.customCss.trim()) return null;
+  const result = validateProfileCustomCss(document.theme.customCss, handle);
+  return result.ok ? null : `Custom CSS blocked: ${result.error}`;
+}
+
 export async function saveDraftAction(documentJson: string): Promise<StudioActionResult> {
   const viewer = await getCurrentUser();
   if (!viewer) redirect("/login?next=/studio");
 
   try {
     const parsed = JSON.parse(documentJson) as unknown;
-    const document = saveDraftDocument(viewer.id, parsed);
+    const document = parsePageDocument(parsed);
+    const cssError = validateDocumentCss(document, viewer.handle);
+    if (cssError) return { error: cssError };
+    const saved = saveDraftDocument(viewer.id, document);
     revalidateOwnerPaths(viewer.handle);
-    return { ok: true, document };
+    return { ok: true, document: saved };
   } catch (e) {
     if (e instanceof PageDocumentValidationError) {
       return { error: e.issues.join("; ") };
@@ -63,10 +72,13 @@ export async function saveAndPublishAction(documentJson: string): Promise<Studio
 
   try {
     const parsed = JSON.parse(documentJson) as unknown;
-    const document = savePageDocument(viewer.id, parsed);
+    const document = parsePageDocument(parsed);
+    const cssError = validateDocumentCss(document, viewer.handle);
+    if (cssError) return { error: cssError };
+    const saved = savePageDocument(viewer.id, document);
     discardDraft(viewer.id);
     revalidateOwnerPaths(viewer.handle);
-    return { ok: true, document };
+    return { ok: true, document: saved };
   } catch (e) {
     if (e instanceof PageDocumentValidationError) {
       return { error: e.issues.join("; ") };
@@ -81,6 +93,12 @@ export async function saveAndPublishAction(documentJson: string): Promise<Studio
 export async function publishDraftAction(): Promise<StudioActionResult> {
   const viewer = await getCurrentUser();
   if (!viewer) redirect("/login?next=/studio");
+
+  const stored = getPageDocument(viewer.id);
+  if (stored?.draftDocument) {
+    const cssError = validateDocumentCss(stored.draftDocument, viewer.handle);
+    if (cssError) return { error: cssError };
+  }
 
   try {
     const document = publishDraft(viewer.id);
@@ -182,7 +200,18 @@ export async function importPageAction(json: string): Promise<StudioActionResult
   if (!viewer) redirect("/login?next=/studio");
 
   try {
-    const document = importPageData(viewer.id, json);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(json);
+    } catch {
+      return { error: "Import file is not valid JSON." };
+    }
+    const obj = parsed as { document?: unknown };
+    if (!obj.document) return { error: "Import file must contain a document field." };
+    const document = parsePageDocument(obj.document);
+    const cssError = validateDocumentCss(document, viewer.handle);
+    if (cssError) return { error: cssError };
+    savePageDocument(viewer.id, document);
     revalidateOwnerPaths(viewer.handle);
     return { ok: true, document };
   } catch (e) {
@@ -226,12 +255,8 @@ export async function publishThemeAction(
   if (!stored) return { error: "Publish a page before sharing a theme." };
 
   const working = stored.draftDocument ?? stored.document;
-  if (working.theme.customCssEnabled && working.theme.customCss.trim()) {
-    const scoped = scopeProfileCss(working.theme.customCss, profileScopeClass(viewer.handle));
-    if (scoped.rejected.length > 0) {
-      return { error: `Custom CSS blocked: ${scoped.rejected.join("; ")}` };
-    }
-  }
+  const cssError = validateDocumentCss(working, viewer.handle);
+  if (cssError) return { error: cssError };
 
   try {
     const themeId = publishTheme(

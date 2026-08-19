@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { findUserByHandle } from "@/lib/auth";
-import { getEffectiveDocument, getMiniPage, getPageDocument } from "@/lib/pageDocument";
+import { canViewPage, getEffectiveDocument, getMiniPage, getPageDocument } from "@/lib/pageDocument";
 import { hasBlockRelationship } from "@/lib/friends";
 import { getCurrentUser } from "@/lib/session";
 import { readableTextFor } from "@/lib/color";
@@ -28,8 +28,7 @@ export default async function MiniPageViewer({ params, searchParams }: Props) {
   const isOwner = viewer?.id === user.id;
 
   const blocked = viewer && !isOwner && hasBlockRelationship(viewer.id, user.id);
-  const visible = stored && (stored.isPublished || isOwner) && !blocked;
-  if (!visible) notFound();
+  if (blocked || !canViewPage(stored, user.id, viewer?.id ?? null)) notFound();
 
   const readerMode = reader === "1";
   const safePreview = preview === "1";

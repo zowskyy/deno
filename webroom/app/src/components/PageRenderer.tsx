@@ -2,7 +2,7 @@ import type { PageDocument } from "@/lib/pageDocumentTypes";
 import type { FriendSummary } from "@/lib/friends";
 import type { GuestbookEntry } from "@/lib/guestbook";
 import { readableTextFor } from "@/lib/color";
-import { profileScopeClass, scopeProfileCss } from "@/lib/cssScope";
+import { profileScopeClass, validateProfileCustomCss } from "@/lib/cssScope";
 import { renderPagePart, type TopEightLink } from "@/lib/moduleRegistry";
 
 export type { TopEightLink };
@@ -49,7 +49,10 @@ export function PageRenderer({
 
   const scopedCss =
     !readerMode && document.theme.customCssEnabled && document.theme.customCss
-      ? scopeProfileCss(document.theme.customCss, `.${scopeClass}`).css
+      ? (() => {
+          const validated = validateProfileCustomCss(document.theme.customCss, handle);
+          return validated.ok ? validated.css : "";
+        })()
       : "";
 
   const ctx = { document, handle, readerMode, friends, guestbookEntries, topEightLinks };

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { findUserByHandle } from "@/lib/auth";
-import { getEffectiveDocument, getPageDocument } from "@/lib/pageDocument";
+import { canViewPage, getEffectiveDocument, getPageDocument } from "@/lib/pageDocument";
 import {
   getFriendRelationship,
   hasBlockRelationship,
@@ -51,8 +51,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
 
   const blocked = viewer && !isOwner && hasBlockRelationship(viewer.id, user.id);
 
-  const visible = stored && (stored.isPublished || isOwner) && !blocked;
-  if (!visible) notFound();
+  if (blocked || !canViewPage(stored, user.id, viewer?.id ?? null)) notFound();
 
   const readerMode = reader === "1";
   const safePreview = preview === "1";
@@ -60,7 +59,6 @@ export default async function ProfilePage({ params, searchParams }: Props) {
 
   const viewerId = viewer?.id ?? null;
   const friends = listPublicFriends(user.id, viewerId);
-  const theirFriends = listPublicFriends(user.id, viewerId);
   const guestbookEntries = listApprovedGuestbookEntries(user.id);
   const topEightLinks = resolveTopEight(document.topEight);
   const rings = listUserWebRings(user.id);
@@ -123,12 +121,15 @@ export default async function ProfilePage({ params, searchParams }: Props) {
 
       {showGuestbookForm && <GuestbookSignForm handle={user.handle} />}
 
-      {theirFriends.length > 0 && (
+      {friends.length > 0 && (
         <section className="their-friends container-narrow" aria-label="Their friends">
           <h2 className="part-label">Their friends</h2>
-          <p className="their-friends-hint">Wander the graph — people @{user.handle} is connected to.</p>
+          <p className="their-friends-hint">
+            Wander the graph — people @{user.handle} is connected to.{" "}
+            <Link href={`/explore/friends/${user.handle}`}>Walk their full graph</Link>
+          </p>
           <ul className="page-friends their-friends-list">
-            {theirFriends.map((f) => (
+            {friends.map((f) => (
               <li key={f.userId}>
                 <Link href={`/@${f.handle}`}>@{f.handle}</Link>
               </li>

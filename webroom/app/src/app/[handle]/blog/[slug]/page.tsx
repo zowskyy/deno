@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { findUserByHandle } from "@/lib/auth";
-import { getEffectiveDocument, getPageDocument } from "@/lib/pageDocument";
+import { canViewPage, getEffectiveDocument, getPageDocument } from "@/lib/pageDocument";
 import { hasBlockRelationship } from "@/lib/friends";
 import { getCurrentUser } from "@/lib/session";
 import { readableTextFor } from "@/lib/color";
@@ -36,8 +36,7 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
   const isOwner = viewer?.id === user.id;
 
   const blocked = viewer && !isOwner && hasBlockRelationship(viewer.id, user.id);
-  const visible = stored && (stored.isPublished || isOwner) && !blocked;
-  if (!visible) notFound();
+  if (blocked || !canViewPage(stored, user.id, viewer?.id ?? null)) notFound();
 
   const safePreview = preview === "1";
   const document = getEffectiveDocument(stored!, isOwner, safePreview);

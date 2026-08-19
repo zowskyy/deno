@@ -164,3 +164,56 @@ export function reportTheme(themeId: string, reporterId: string | null, reason: 
     "INSERT INTO theme_reports (id, theme_id, reporter_id, reason, created_at, status) VALUES (?, ?, ?, ?, ?, 'open')",
   ).run(randomUUID(), themeId, reporterId, reason, new Date().toISOString());
 }
+
+export interface ThemeReportSummary {
+  id: string;
+  themeId: string;
+  themeName: string;
+  reason: string;
+  createdAt: string;
+  reporterHandle: string | null;
+}
+
+export function listOpenThemeReports(limit = 50): ThemeReportSummary[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT tr.id, tr.theme_id, st.name as theme_name, tr.reason, tr.created_at, u.handle as reporter_handle
+       FROM theme_reports tr
+       JOIN shared_themes st ON st.id = tr.theme_id
+       LEFT JOIN users u ON u.id = tr.reporter_id
+       WHERE tr.status = 'open'
+       ORDER BY tr.created_at ASC
+       LIMIT ?`,
+    )
+    .all(limit) as {
+    id: string;
+    theme_id: string;
+    theme_name: string;
+    reason: string;
+    created_at: string;
+    reporter_handle: string | null;
+  }[];
+
+  return rows.map((r) => ({
+    id: r.id,
+    themeId: r.theme_id,
+    themeName: r.theme_name,
+    reason: r.reason,
+    createdAt: r.created_at,
+    reporterHandle: r.reporter_handle,
+  }));
+}
+
+export function reviewThemeReport(
+  reportId: string,
+  moderatorId: string,
+  status: "reviewed" | "dismissed",
+  note: string,
+): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE theme_reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
+  ).run(status, moderatorId, note.trim() || null, now, reportId);
+}
