@@ -1,6 +1,7 @@
 import type { PageDocument, PagePartId, TemplateId } from "./pageDocumentTypes";
 import { TEMPLATE_PRESETS } from "./pageDocumentTheme";
 
+/** Display metadata for a page template mood preset. */
 export interface TemplateMood {
   id: TemplateId;
   label: string;
@@ -71,6 +72,7 @@ export type CreativeSparkId =
   | "pixel-doodle"
   | "shuffle-font";
 
+/** One-click creative prompt shown in the Make flow. */
 export interface CreativeSpark {
   id: CreativeSparkId;
   label: string;
@@ -86,6 +88,7 @@ export const CREATIVE_SPARKS: CreativeSpark[] = [
   { id: "shuffle-font", label: "Shuffle type", hint: "Cycle serif, sans, mono" },
 ];
 
+/** Apply a creative spark transformation to a page document. */
 export function applyCreativeSpark(id: CreativeSparkId, doc: PageDocument): PageDocument {
   switch (id) {
     case "surprise-colors": {
@@ -158,6 +161,7 @@ export function applyCreativeSpark(id: CreativeSparkId, doc: PageDocument): Page
   }
 }
 
+/** Apply a template mood preset to a page document's theme. */
 export function applyTemplateMood(doc: PageDocument, template: TemplateId): PageDocument {
   const preset = TEMPLATE_PRESETS[template];
   return {

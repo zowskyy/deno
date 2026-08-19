@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 import type { PageDocument } from "./pageDocumentTypes";
 
+/** Community theme package with metadata and installable theme data. */
 export interface SharedTheme {
   id: string;
   creatorHandle: string;
@@ -16,6 +17,7 @@ export interface SharedTheme {
   updatedAt: string;
 }
 
+/** Insert default shared themes when the table is empty. */
 export function ensureSeedSharedThemes(): void {
   const db = getDb();
   const count = db.prepare("SELECT COUNT(*) as c FROM shared_themes").get() as { c: number };
@@ -52,6 +54,7 @@ export function ensureSeedSharedThemes(): void {
   }
 }
 
+/** List shared themes, seeding defaults when needed. */
 export function listSharedThemes(limit = 50): SharedTheme[] {
   ensureSeedSharedThemes();
   const db = getDb();
@@ -70,6 +73,7 @@ export function listSharedThemes(limit = 50): SharedTheme[] {
   return rows.map(rowToTheme);
 }
 
+/** Load one shared theme by id. */
 export function getSharedTheme(id: string): SharedTheme | null {
   const db = getDb();
   const row = db
@@ -101,6 +105,7 @@ function rowToTheme(row: Record<string, unknown>): SharedTheme {
   };
 }
 
+/** Publish a theme to the shared gallery and record its first version. */
 export function publishTheme(
   userId: string,
   handle: string,
@@ -122,6 +127,7 @@ export function publishTheme(
   return id;
 }
 
+/** Copy a shared theme into the user's gallery with attribution. */
 export function forkTheme(userId: string, handle: string, sourceId: string): string {
   const source = getSharedTheme(sourceId);
   if (!source) throw new Error("Theme not found.");
@@ -136,6 +142,7 @@ export function forkTheme(userId: string, handle: string, sourceId: string): str
   return publishTheme(userId, handle, `${source.name} (fork)`, `Forked from ${source.name}`, source.tags, theme);
 }
 
+/** Apply a shared theme to a page document with install attribution. */
 export function installThemeOnDocument(document: PageDocument, theme: SharedTheme): PageDocument {
   return {
     ...document,
@@ -150,6 +157,7 @@ export function installThemeOnDocument(document: PageDocument, theme: SharedThem
   };
 }
 
+/** List version history for a shared theme. */
 export function listThemeVersions(themeId: string): { version: number; createdAt: string }[] {
   const db = getDb();
   const rows = db
@@ -158,6 +166,7 @@ export function listThemeVersions(themeId: string): { version: number; createdAt
   return rows.map((r) => ({ version: r.version, createdAt: r.created_at }));
 }
 
+/** File a moderation report against a shared theme. */
 export function reportTheme(themeId: string, reporterId: string | null, reason: string): void {
   const db = getDb();
   db.prepare(
@@ -165,6 +174,7 @@ export function reportTheme(themeId: string, reporterId: string | null, reason: 
   ).run(randomUUID(), themeId, reporterId, reason, new Date().toISOString());
 }
 
+/** Open theme report awaiting moderator review. */
 export interface ThemeReportSummary {
   id: string;
   themeId: string;
@@ -174,6 +184,7 @@ export interface ThemeReportSummary {
   reporterHandle: string | null;
 }
 
+/** List open shared-theme reports for the moderation queue. */
 export function listOpenThemeReports(limit = 50): ThemeReportSummary[] {
   const db = getDb();
   const rows = db
@@ -205,6 +216,7 @@ export function listOpenThemeReports(limit = 50): ThemeReportSummary[] {
   }));
 }
 
+/** Mark a theme report reviewed or dismissed. */
 export function reviewThemeReport(
   reportId: string,
   moderatorId: string,

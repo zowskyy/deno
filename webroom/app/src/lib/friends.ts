@@ -7,6 +7,7 @@ import { getDb } from "./db";
 // block always wins over a pending or future request in either
 // direction.
 
+/** Error thrown when a friend request action is invalid or blocked. */
 export class FriendRequestError extends Error {}
 
 function isBlocked(db: ReturnType<typeof getDb>, a: string, b: string): boolean {
@@ -23,6 +24,7 @@ export function hasBlockRelationship(userIdA: string, userIdB: string): boolean 
   return isBlocked(getDb(), userIdA, userIdB);
 }
 
+/** Send a friend request, auto-accepting if the other user already requested. */
 export function sendFriendRequest(requesterId: string, addresseeId: string): void {
   if (requesterId === addresseeId) {
     throw new FriendRequestError("You can't send a friend request to yourself.");
@@ -62,8 +64,10 @@ export function sendFriendRequest(requesterId: string, addresseeId: string): voi
   ).run(randomUUID(), requesterId, addresseeId, new Date().toISOString());
 }
 
+/** Error thrown when a friend link id does not exist. */
 export class FriendLinkNotFoundError extends Error {}
 
+/** Accept a pending friend request addressed to the current user. */
 export function acceptFriendRequest(currentUserId: string, requestId: string): void {
   const db = getDb();
   const row = db
@@ -95,6 +99,7 @@ export function removeFriendLink(currentUserId: string, requestId: string): void
   db.prepare("DELETE FROM friend_links WHERE id = ?").run(requestId);
 }
 
+/** Accepted friend with link id and public handle. */
 export interface FriendSummary {
   linkId: string;
   userId: string;
@@ -116,6 +121,7 @@ export function listFriends(userId: string): FriendSummary[] {
   return rows.map((r) => ({ linkId: r.link_id, userId: r.user_id, handle: r.handle }));
 }
 
+/** Incoming friend request awaiting a response. */
 export interface PendingRequest {
   id: string;
   fromUserId: string;
@@ -137,6 +143,7 @@ export function listIncomingRequests(userId: string): PendingRequest[] {
   return rows.map((r) => ({ id: r.id, fromUserId: r.from_id, fromHandle: r.from_handle, createdAt: r.created_at }));
 }
 
+/** Block a user and remove any existing friend link between them. */
 export function blockUser(blockerId: string, blockedId: string): void {
   if (blockerId === blockedId) throw new FriendRequestError("You can't block yourself.");
   const db = getDb();
@@ -151,6 +158,7 @@ export function blockUser(blockerId: string, blockedId: string): void {
   ).run(blockerId, blockedId, blockedId, blockerId);
 }
 
+/** Remove a block the current user placed on another user. */
 export function unblockUser(blockerId: string, blockedId: string): void {
   const db = getDb();
   db.prepare("DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?").run(blockerId, blockedId);
@@ -162,6 +170,7 @@ export type FriendRelationship =
   | { status: "pending_received"; requestId: string }
   | { status: "accepted"; requestId: string };
 
+/** Look up the friend relationship between the viewer and another user. */
 export function getFriendRelationship(viewerId: string, otherUserId: string): FriendRelationship {
   const db = getDb();
   const row = db
@@ -179,6 +188,7 @@ export function getFriendRelationship(viewerId: string, otherUserId: string): Fr
   return { status: "pending_received", requestId: row.id };
 }
 
+/** List users blocked by the given user. */
 export function listBlockedUsers(blockerId: string): { userId: string; handle: string }[] {
   const db = getDb();
   const rows = db

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 
+/** Curated collection metadata for Explore browsing. */
 export interface Collection {
   id: string;
   slug: string;
@@ -8,12 +9,14 @@ export interface Collection {
   description: string;
 }
 
+/** A published page listed in a collection. */
 export interface CollectionPage {
   handle: string;
   displayName: string;
   position: number;
 }
 
+/** List all editorial collections. */
 export function listCollections(): Collection[] {
   const db = getDb();
   return db
@@ -21,6 +24,7 @@ export function listCollections(): Collection[] {
     .all() as unknown as Collection[];
 }
 
+/** Look up a collection by its URL slug. */
 export function getCollectionBySlug(slug: string): Collection | null {
   const db = getDb();
   const row = db
@@ -29,6 +33,7 @@ export function getCollectionBySlug(slug: string): Collection | null {
   return row ?? null;
 }
 
+/** List published public pages in a collection, ordered by position. */
 export function listCollectionPages(collectionId: string): CollectionPage[] {
   const db = getDb();
   const rows = db
@@ -53,6 +58,7 @@ export function listCollectionPages(collectionId: string): CollectionPage[] {
   });
 }
 
+/** Insert default collections when the table is empty. */
 export function ensureSeedCollections(): void {
   const db = getDb();
   const count = db.prepare("SELECT COUNT(*) as c FROM collections").get() as { c: number };

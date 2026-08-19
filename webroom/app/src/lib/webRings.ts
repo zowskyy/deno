@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 
+/** Webring metadata for linked community browsing. */
 export interface WebRing {
   id: string;
   slug: string;
@@ -8,12 +9,14 @@ export interface WebRing {
   description: string;
 }
 
+/** Published member of a webring with display order. */
 export interface WebRingMember {
   handle: string;
   displayName: string;
   position: number;
 }
 
+/** List all webrings. */
 export function listWebRings(): WebRing[] {
   const db = getDb();
   const rows = db
@@ -22,6 +25,7 @@ export function listWebRings(): WebRing[] {
   return rows;
 }
 
+/** Look up a webring by its URL slug. */
 export function getWebRingBySlug(slug: string): WebRing | null {
   const db = getDb();
   const row = db
@@ -30,6 +34,7 @@ export function getWebRingBySlug(slug: string): WebRing | null {
   return row ?? null;
 }
 
+/** List discoverable members of a webring in ring order. */
 export function listRingMembers(ringId: string): WebRingMember[] {
   const db = getDb();
   const rows = db
@@ -54,6 +59,7 @@ export function listRingMembers(ringId: string): WebRingMember[] {
   });
 }
 
+/** Return previous and next ring neighbors for webring navigation. */
 export function getRingNavigation(ringId: string, currentUserId: string): { prev: WebRingMember | null; next: WebRingMember | null } {
   const members = listRingMembers(ringId);
   const idx = members.findIndex((m) => {
@@ -82,6 +88,7 @@ export function listUserWebRings(userId: string): WebRing[] {
   return rows;
 }
 
+/** Insert default webrings when the table is empty. */
 export function ensureSeedRings(): void {
   const db = getDb();
   const count = db.prepare("SELECT COUNT(*) as c FROM web_rings").get() as { c: number };

@@ -12,6 +12,7 @@ export async function rateLimitActorKey(prefix: string, userId: string | null): 
   return `${prefix}:${ip}`;
 }
 
+/** Error thrown when a rate limit is exceeded. */
 export class RateLimitError extends Error {
   retryAfterSeconds: number;
   constructor(retryAfterSeconds: number) {
@@ -20,6 +21,7 @@ export class RateLimitError extends Error {
   }
 }
 
+/** Increment a rate-limit counter and throw when the window cap is reached. */
 export function checkRateLimit(key: string, maxCount: number): void {
   const db = getDb();
   const now = Date.now();

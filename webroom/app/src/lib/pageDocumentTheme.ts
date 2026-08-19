@@ -12,6 +12,7 @@ export const TEMPLATE_PRESETS: Record<
   "start-simple": { accent: "#e0526b", background: "#f1ede9", fontStyle: "sans" },
 };
 
+/** Compute WCAG contrast ratio between two hex colors. */
 export function contrastRatio(foreground: string, background: string): number {
   const lum = (hex: string) => {
     const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -25,6 +26,7 @@ export function contrastRatio(foreground: string, background: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+/** Return accessibility warnings for accent contrast and missing gallery alt text. */
 export function getContrastWarnings(document: PageDocument): string[] {
   if (!document.access.contrastWarningsEnabled) return [];
   const warnings: string[] = [];

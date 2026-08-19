@@ -6,6 +6,7 @@ export type { ReportSummary };
 
 export { listOpenReports };
 
+/** Promote a configured or first user to moderator when none exists. */
 export function ensureModeratorSeed(): void {
   const db = getDb();
   const existing = db.prepare("SELECT id FROM users WHERE is_moderator = 1 LIMIT 1").get();
@@ -29,6 +30,7 @@ export function ensureModeratorSeed(): void {
   db.prepare("UPDATE users SET is_moderator = 1 WHERE id = ?").run(first.id);
 }
 
+/** Mark a user report reviewed or dismissed and log the moderator action. */
 export function reviewReport(
   reportId: string,
   moderatorId: string,
@@ -47,6 +49,7 @@ export function reviewReport(
   logModeratorAction(moderatorId, `report_${status}`, report?.reported_handle ?? null, note);
 }
 
+/** Append an auditable moderator action to the log. */
 export function logModeratorAction(
   moderatorId: string,
   action: string,
@@ -59,6 +62,7 @@ export function logModeratorAction(
   ).run(randomUUID(), moderatorId, action, targetHandle, detail, new Date().toISOString());
 }
 
+/** List recent moderator actions with handles and details. */
 export function listModeratorLogs(limit = 50): {
   action: string;
   targetHandle: string | null;
@@ -92,6 +96,7 @@ export function listModeratorLogs(limit = 50): {
   }));
 }
 
+/** Return whether the user has moderator privileges. */
 export function isModerator(userId: string): boolean {
   const db = getDb();
   const row = db.prepare("SELECT is_moderator FROM users WHERE id = ?").get(userId) as
@@ -100,12 +105,14 @@ export function isModerator(userId: string): boolean {
   return !!row?.is_moderator;
 }
 
+/** User record returned by moderation lookup tools. */
 export interface ModerationUserTarget {
   id: string;
   handle: string;
   isBlockedPlatform: boolean;
 }
 
+/** Look up a user by handle for moderation actions. */
 export function findUserForModeration(rawHandle: string): ModerationUserTarget | null {
   const handle = rawHandle.trim().toLowerCase();
   const db = getDb();
@@ -116,6 +123,7 @@ export function findUserForModeration(rawHandle: string): ModerationUserTarget |
   return { id: row.id, handle: row.handle, isBlockedPlatform: !!row.is_blocked_platform };
 }
 
+/** Block or unblock a user platform-wide and log the action. */
 export function setPlatformBlock(userId: string, blocked: boolean, moderatorId: string): void {
   const db = getDb();
   db.prepare("UPDATE users SET is_blocked_platform = ? WHERE id = ?").run(blocked ? 1 : 0, userId);

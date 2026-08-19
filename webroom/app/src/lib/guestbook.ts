@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 import { hasBlockRelationship } from "./friends";
 
+/** Error thrown when a guestbook action fails validation or access checks. */
 export class GuestbookError extends Error {}
 
+/** One guestbook message with moderation status. */
 export interface GuestbookEntry {
   id: string;
   authorHandle: string | null;
@@ -12,6 +14,7 @@ export interface GuestbookEntry {
   status: "pending" | "approved" | "rejected";
 }
 
+/** List approved guestbook entries shown on a public page. */
 export function listApprovedGuestbookEntries(pageOwnerId: string, limit = 50): GuestbookEntry[] {
   const db = getDb();
   const rows = db
@@ -31,6 +34,7 @@ export function listApprovedGuestbookEntries(pageOwnerId: string, limit = 50): G
   }));
 }
 
+/** List guestbook entries awaiting owner approval. */
 export function listPendingGuestbookEntries(pageOwnerId: string): GuestbookEntry[] {
   const db = getDb();
   const rows = db
@@ -50,6 +54,7 @@ export function listPendingGuestbookEntries(pageOwnerId: string): GuestbookEntry
   }));
 }
 
+/** Add a guestbook signature, pending or approved per page settings. */
 export function signGuestbook(
   pageOwnerId: string,
   authorId: string | null,
@@ -80,6 +85,7 @@ export function signGuestbook(
   );
 }
 
+/** Approve or reject a pending guestbook entry. */
 export function moderateGuestbookEntry(pageOwnerId: string, entryId: string, approve: boolean): void {
   const db = getDb();
   const row = db
@@ -93,6 +99,7 @@ export function moderateGuestbookEntry(pageOwnerId: string, entryId: string, app
   );
 }
 
+/** Permanently delete a guestbook entry owned by the page owner. */
 export function deleteGuestbookEntry(pageOwnerId: string, entryId: string): void {
   const db = getDb();
   db.prepare("DELETE FROM guestbook_entries WHERE id = ? AND page_owner_id = ?").run(entryId, pageOwnerId);

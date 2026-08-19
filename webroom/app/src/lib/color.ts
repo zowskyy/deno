@@ -10,6 +10,7 @@ function relativeLuminance(hex: string): number {
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
 }
 
+/** Primary and de-emphasized text colors for a theme background. */
 export interface ReadableText {
   ink: string;
   inkSoft: string;

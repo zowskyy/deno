@@ -39,12 +39,14 @@ function validateRuleBody(body: string, rejected: string[]): boolean {
   return rejectUnsafeDeclarations(body, rejected);
 }
 
+/** Result of scoping and validating profile custom CSS. */
 export interface CssScopeResult {
   css: string;
   warnings: string[];
   rejected: string[];
 }
 
+/** Prefix selectors and filter unsafe rules in profile custom CSS. */
 export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult {
   const warnings: string[] = [];
   const rejected: string[] = [];
@@ -181,6 +183,7 @@ function splitCssRules(css: string): string[] {
   return rules;
 }
 
+/** Derive the scoped CSS class name for a profile handle. */
 export function profileScopeClass(handle: string): string {
   const safe = handle.toLowerCase().replace(/[^a-z0-9_-]/g, "");
   return `profile-scope--${safe}`;

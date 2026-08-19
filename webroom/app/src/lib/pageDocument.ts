@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { getDb } from "./db";
 import { randomUUID } from "node:crypto";
 import {
@@ -23,6 +22,7 @@ export {
   type MiniPage,
 } from "./pageDocumentTypes";
 
+/** Build a new v3 page document with default theme and empty sections. */
 export function defaultPageDocument(displayName: string): PageDocument {
   return {
     version: CURRENT_SCHEMA_VERSION,
@@ -45,6 +45,7 @@ export function defaultPageDocument(displayName: string): PageDocument {
   };
 }
 
+/** Upgrade legacy page documents to the current schema version. */
 export function migrateDocument(input: Record<string, unknown>): PageDocument {
   if (input.version === CURRENT_SCHEMA_VERSION) return parsePageDocument(input);
 
@@ -89,6 +90,7 @@ export function migrateDocument(input: Record<string, unknown>): PageDocument {
   return parsePageDocument(input);
 }
 
+/** Error thrown when page document validation fails. */
 export class PageDocumentValidationError extends Error {
   issues: string[];
   constructor(issues: string[]) {
@@ -97,6 +99,7 @@ export class PageDocumentValidationError extends Error {
   }
 }
 
+/** Parse and validate unknown input as a page document. */
 export function parsePageDocument(input: unknown): PageDocument {
   const result = PageDocumentSchema.safeParse(input);
   if (!result.success) {
@@ -135,6 +138,7 @@ function rowToStored(row: {
   };
 }
 
+/** Load a user's stored page document and publish settings. */
 export function getPageDocument(userId: string): StoredPage | null {
   const db = getDb();
   const row = db
@@ -150,6 +154,7 @@ export function getPageDocument(userId: string): StoredPage | null {
 
 const MAX_VERSIONS_KEPT = 50;
 
+/** Validate, persist, and version a user's published page document. */
 export function savePageDocument(userId: string, input: unknown): PageDocument {
   const document = parsePageDocument(input);
   const db = getDb();
@@ -188,6 +193,7 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
   return document;
 }
 
+/** Save an in-progress draft without publishing it. */
 export function saveDraftDocument(userId: string, input: unknown): PageDocument {
   const document = parsePageDocument(input);
   const db = getDb();
@@ -202,6 +208,7 @@ export function saveDraftDocument(userId: string, input: unknown): PageDocument 
   return document;
 }
 
+/** Promote the current draft to the published page document. */
 export function publishDraft(userId: string): PageDocument {
   const db = getDb();
   const row = db
@@ -211,6 +218,7 @@ export function publishDraft(userId: string): PageDocument {
   return savePageDocument(userId, JSON.parse(row.draft_document_json));
 }
 
+/** Discard the saved draft without changing the published document. */
 export function discardDraft(userId: string): void {
   const db = getDb();
   db.prepare("UPDATE page_documents SET draft_document_json = NULL WHERE user_id = ?").run(userId);
@@ -229,11 +237,13 @@ export function canViewPage(
   return stored.visibility === "public" || stored.visibility === "unlisted";
 }
 
+/** Choose the draft or published document based on owner preview mode. */
 export function getEffectiveDocument(stored: StoredPage, isOwner: boolean, safePreview: boolean): PageDocument {
   if (isOwner && safePreview && stored.draftDocument) return stored.draftDocument;
   return stored.document;
 }
 
+/** Find a mini-page by slug within a page document. */
 export function getMiniPage(document: PageDocument, slug: string) {
   return document.miniPages.find((p) => p.slug === slug) ?? null;
 }
@@ -247,6 +257,7 @@ function syncPageTags(userId: string, tags: string[]): void {
   }
 }
 
+/** List saved page document versions for rollback. */
 export function listVersions(userId: string): { id: string; createdAt: string }[] {
   const db = getDb();
   const rows = db
@@ -255,8 +266,10 @@ export function listVersions(userId: string): { id: string; createdAt: string }[
   return rows.map((r) => ({ id: r.id, createdAt: r.created_at }));
 }
 
+/** Error thrown when a requested page version does not exist. */
 export class VersionNotFoundError extends Error {}
 
+/** Restore a historical page document version as the current page. */
 export function restoreVersion(userId: string, versionId: string): PageDocument {
   const db = getDb();
   const versionRow = db
@@ -266,6 +279,7 @@ export function restoreVersion(userId: string, versionId: string): PageDocument 
   return savePageDocument(userId, JSON.parse(versionRow.document_json));
 }
 
+/** Set whether a page is publicly visible when published. */
 export function setPublished(userId: string, published: boolean): void {
   const db = getDb();
   const existing = db.prepare("SELECT user_id FROM page_documents WHERE user_id = ?").get(userId);
@@ -277,6 +291,7 @@ export function setPublished(userId: string, published: boolean): void {
   );
 }
 
+/** Set who can access a published page. */
 export function setVisibility(userId: string, visibility: StoredPage["visibility"]): void {
   const db = getDb();
   db.prepare("UPDATE page_documents SET visibility = ?, updated_at = ? WHERE user_id = ?").run(
@@ -286,6 +301,7 @@ export function setVisibility(userId: string, visibility: StoredPage["visibility
   );
 }
 
+/** Hide or show a page in Explore and discovery listings. */
 export function setHiddenFromDiscovery(userId: string, hidden: boolean): void {
   const db = getDb();
   db.prepare("UPDATE page_documents SET hidden_from_discovery = ?, updated_at = ? WHERE user_id = ?").run(
@@ -295,6 +311,7 @@ export function setHiddenFromDiscovery(userId: string, hidden: boolean): void {
   );
 }
 
+/** Disable or re-enable guestbook signing on a page. */
 export function setGuestbookDisabled(userId: string, disabled: boolean): void {
   const db = getDb();
   db.prepare("UPDATE page_documents SET guestbook_disabled = ?, updated_at = ? WHERE user_id = ?").run(
@@ -304,11 +321,13 @@ export function setGuestbookDisabled(userId: string, disabled: boolean): void {
   );
 }
 
+/** Quickly hide a page from discovery and restrict it to unlisted access. */
 export function activatePanicMode(userId: string): void {
   setHiddenFromDiscovery(userId, true);
   setVisibility(userId, "unlisted");
 }
 
+/** Export a user's page data as formatted JSON. */
 export function exportPageData(userId: string): string {
   const stored = getPageDocument(userId);
   if (!stored) throw new Error("No page to export.");
@@ -325,6 +344,7 @@ export function exportPageData(userId: string): string {
   );
 }
 
+/** Import page data from JSON and save it as the user's document. */
 export function importPageData(userId: string, json: string): PageDocument {
   let parsed: unknown;
   try {

@@ -171,6 +171,7 @@ export type PlaylistTrack = z.infer<typeof PlaylistTrackSchema>;
 export type PixelArtPiece = z.infer<typeof PixelArtPieceSchema>;
 export type MiniPage = z.infer<typeof MiniPageSchema>;
 
+/** Persisted page document plus publish, visibility, and draft metadata. */
 export interface StoredPage {
   document: PageDocument;
   draftDocument: PageDocument | null;
@@ -181,6 +182,7 @@ export interface StoredPage {
   updatedAt: string;
 }
 
+/** Default empty v3 page sections used during migration and new documents. */
 export function defaultPageDocumentFieldsV3() {
   return {
     gallery: [] as PageDocument["gallery"],

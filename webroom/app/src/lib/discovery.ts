@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 
+/** Public page metadata surfaced in Explore and search. */
 export interface DiscoverablePage {
   handle: string;
   displayName: string;
@@ -30,6 +31,7 @@ const DISCOVERABLE_WHERE = `
   AND u.is_blocked_platform = 0
 `;
 
+/** List recently updated public discoverable pages. */
 export function listRecentlyPublished(limit = 24): DiscoverablePage[] {
   const db = getDb();
   const rows = db
@@ -55,6 +57,7 @@ export function listRecentlyPublished(limit = 24): DiscoverablePage[] {
   });
 }
 
+/** List public discoverable pages tagged with the given slug. */
 export function listByTag(tag: string, limit = 24): DiscoverablePage[] {
   const db = getDb();
   const rows = db
@@ -75,11 +78,13 @@ export function listByTag(tag: string, limit = 24): DiscoverablePage[] {
   });
 }
 
+/** List public discoverable pages using a specific template. */
 export function listByTemplate(template: string, limit = 24): DiscoverablePage[] {
   const pages = listRecentlyPublished(200);
   return pages.filter((p) => p.template === template).slice(0, limit);
 }
 
+/** Return one random public discoverable page, or null if none exist. */
 export function getRandomPage(): DiscoverablePage | null {
   const db = getDb();
   const row = db
@@ -97,6 +102,7 @@ export function getRandomPage(): DiscoverablePage | null {
   return { handle: row.handle, displayName: meta.displayName || row.handle, updatedAt: row.updated_at, tags: meta.tags, template: meta.template };
 }
 
+/** List the most common tags on discoverable pages. */
 export function listPopularTags(limit = 20): { tag: string; count: number }[] {
   const db = getDb();
   const rows = db
@@ -114,6 +120,7 @@ export function listPopularTags(limit = 20): { tag: string; count: number }[] {
   return rows;
 }
 
+/** Search discoverable pages by handle or document content. */
 export function searchPages(query: string, limit = 24): DiscoverablePage[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];

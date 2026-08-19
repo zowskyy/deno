@@ -4,11 +4,13 @@ import type { PageDocument } from "./pageDocumentTypes";
 import type { FriendSummary } from "./friends";
 import type { GuestbookEntry } from "./guestbook";
 
+/** Resolved Top 8 friend link for page rendering. */
 export interface TopEightLink {
   handle: string;
   label: string;
 }
 
+/** Data passed to each page module renderer. */
 export interface PageRenderContext {
   document: PageDocument;
   handle: string;
@@ -18,6 +20,7 @@ export interface PageRenderContext {
   topEightLinks: TopEightLink[];
 }
 
+/** Registry entry describing one renderable page section. */
 export interface PageModuleDefinition {
   id: string;
   label: string;
@@ -348,6 +351,7 @@ export const PAGE_MODULE_REGISTRY: Record<string, PageModuleDefinition> = {
   },
 };
 
+/** Render one page part by id, falling back when unknown or failing. */
 export function renderPagePart(partId: string, ctx: PageRenderContext): ReactNode | null {
   const mod = PAGE_MODULE_REGISTRY[partId];
   if (!mod) return <UnsupportedModule type={partId} />;
@@ -358,6 +362,7 @@ export function renderPagePart(partId: string, ctx: PageRenderContext): ReactNod
   }
 }
 
+/** List all registered page module definitions. */
 export function listPageModules(): PageModuleDefinition[] {
   return Object.values(PAGE_MODULE_REGISTRY);
 }

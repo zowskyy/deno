@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 
+/** Error thrown when an appeal action fails validation or preconditions. */
 export class AppealError extends Error {}
 
+/** Summary of a platform-block appeal for moderator review. */
 export interface AppealSummary {
   id: string;
   userId: string;
@@ -19,6 +21,7 @@ function isOpenAppealUniqueViolation(error: unknown): boolean {
   return code === "SQLITE_CONSTRAINT_UNIQUE" || error.message.includes("UNIQUE constraint failed");
 }
 
+/** Submit a platform-block appeal for the given user. */
 export function fileAppeal(userId: string, reason: string): void {
   const trimmed = reason.trim();
   if (!trimmed) throw new AppealError("Tell us why you're appealing.");
@@ -50,6 +53,7 @@ export function fileAppeal(userId: string, reason: string): void {
   }
 }
 
+/** List open appeals awaiting moderator review. */
 export function listOpenAppeals(limit = 50): AppealSummary[] {
   const db = getDb();
   const rows = db
@@ -82,6 +86,7 @@ export function listOpenAppeals(limit = 50): AppealSummary[] {
   }));
 }
 
+/** Grant or dismiss an open appeal and unblock the user when granted. */
 export function reviewAppeal(
   appealId: string,
   moderatorId: string,

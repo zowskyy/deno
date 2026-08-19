@@ -16,8 +16,10 @@ const RESERVED_HANDLES = new Set([
   "friends", "guestbook", "webroom", "help", "about", "terms", "privacy", "policy", "appeal",
 ]);
 
+/** Error thrown when handle or password validation fails. */
 export class ValidationError extends Error {}
 
+/** Normalize and validate a user handle, throwing on invalid or reserved names. */
 export function validateHandle(rawHandle: string): string {
   const handle = rawHandle.trim().toLowerCase();
   if (!HANDLE_PATTERN.test(handle)) {
@@ -31,6 +33,7 @@ export function validateHandle(rawHandle: string): string {
   return handle;
 }
 
+/** Validate password length constraints. */
 export function validatePassword(password: string): void {
   if (password.length < 8) {
     throw new ValidationError("Password must be at least 8 characters.");
@@ -63,6 +66,7 @@ function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(actual, expected);
 }
 
+/** Authenticated user record returned by auth helpers. */
 export interface User {
   id: string;
   handle: string;
@@ -80,12 +84,14 @@ export function findUserByHandle(rawHandle: string): User | null {
   return { id: row.id, handle: row.handle, createdAt: row.created_at };
 }
 
+/** Error thrown when signup is attempted with an already-taken handle. */
 export class HandleTakenError extends Error {
   constructor(handle: string) {
     super(`The handle "${handle}" is already taken.`);
   }
 }
 
+/** Create a new user account with a validated handle and password. */
 export function createUser(rawHandle: string, password: string): User {
   const handle = validateHandle(rawHandle);
   validatePassword(password);
@@ -108,12 +114,14 @@ export function createUser(rawHandle: string, password: string): User {
   return { id, handle, createdAt };
 }
 
+/** Error thrown when login credentials do not match any account. */
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("Incorrect handle or password.");
   }
 }
 
+/** Verify handle and password and return the user when credentials are valid. */
 export function authenticate(rawHandle: string, password: string): User {
   const handle = rawHandle.trim().toLowerCase();
   const db = getDb();
@@ -182,6 +190,7 @@ function hashToken(rawToken: string): string {
   return scryptSync(rawToken, "webroom-session-salt-v1", 32).toString("hex");
 }
 
+/** Resolve a session token to the logged-in user, or null if expired or invalid. */
 export function resolveSession(rawToken: string | undefined): User | null {
   if (!rawToken) return null;
   const db = getDb();
@@ -206,6 +215,7 @@ export function resolveSession(rawToken: string | undefined): User | null {
   return { id: row.id, handle: row.handle, createdAt: row.created_at };
 }
 
+/** Delete a session token from the database. */
 export function destroySession(rawToken: string): void {
   const db = getDb();
   db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hashToken(rawToken));

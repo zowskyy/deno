@@ -4,8 +4,10 @@ import { getDb } from "./db";
 const VALID_REASONS = ["harassment", "impersonation", "unsafe-content", "spam", "other"] as const;
 export type ReportReason = (typeof VALID_REASONS)[number];
 
+/** Error thrown when a report reason or payload is invalid. */
 export class InvalidReportError extends Error {}
 
+/** User report awaiting or after moderator review. */
 export interface ReportSummary {
   id: string;
   reportedHandle: string;
@@ -15,6 +17,7 @@ export interface ReportSummary {
   reporterHandle: string | null;
 }
 
+/** List user reports, optionally filtered by status. */
 export function listReports(options?: { status?: ReportSummary["status"]; limit?: number }): ReportSummary[] {
   const limit = options?.limit ?? 50;
   const db = getDb();
@@ -65,10 +68,12 @@ export function listReports(options?: { status?: ReportSummary["status"]; limit?
   }));
 }
 
+/** List open user reports for the moderation queue. */
 export function listOpenReports(limit = 50): ReportSummary[] {
   return listReports({ status: "open", limit });
 }
 
+/** File a content or behavior report against a user handle. */
 export function fileReport(reporterId: string | null, reportedHandle: string, reason: string): void {
   if (!VALID_REASONS.includes(reason as ReportReason)) {
     throw new InvalidReportError(`"${reason}" isn't a valid report reason.`);

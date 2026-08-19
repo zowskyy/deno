@@ -55,6 +55,7 @@ function migrate(db: DatabaseSync): void {
   }
 }
 
+/** Return the shared SQLite database instance, initializing it on first use. */
 export function getDb(): DatabaseSync {
   if (dbInstance) return dbInstance;
   const path = process.env.WEBROOM_DB_PATH ?? join(__dirname, "..", "..", "webroom.db");
@@ -65,6 +66,7 @@ export function getDb(): DatabaseSync {
   return dbInstance;
 }
 
+/** Close and clear the database singleton for test isolation. */
 export function resetDbForTests(): void {
   if (dbInstance) {
     dbInstance.close();
