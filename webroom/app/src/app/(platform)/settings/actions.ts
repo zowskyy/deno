@@ -12,6 +12,7 @@ import {
 } from "@/lib/friends";
 import { GuestbookError, moderateGuestbookEntry } from "@/lib/guestbook";
 import { activatePanicMode, getPageDocument } from "@/lib/pageDocument";
+import { checkRateLimit, RateLimitError, rateLimitActorKey } from "@/lib/rateLimit";
 import { getCurrentUser } from "@/lib/session";
 
 export interface SettingsActionState {
@@ -42,10 +43,13 @@ export async function acceptIncomingAction(requestId: string): Promise<SettingsA
   if (!viewer) return { error: "Log in to manage friend requests." };
 
   try {
+    const key = await rateLimitActorKey("friend", viewer.id);
+    checkRateLimit(key, 10);
     acceptFriendRequest(viewer.id, requestId);
     revalidatePath("/settings");
   } catch (e) {
     if (e instanceof FriendRequestError || e instanceof FriendLinkNotFoundError) return { error: e.message };
+    if (e instanceof RateLimitError) return { error: e.message };
     throw e;
   }
   return {};
@@ -56,10 +60,13 @@ export async function declineIncomingAction(requestId: string): Promise<Settings
   if (!viewer) return { error: "Log in to manage friend requests." };
 
   try {
+    const key = await rateLimitActorKey("friend", viewer.id);
+    checkRateLimit(key, 10);
     removeFriendLink(viewer.id, requestId);
     revalidatePath("/settings");
   } catch (e) {
     if (e instanceof FriendRequestError) return { error: e.message };
+    if (e instanceof RateLimitError) return { error: e.message };
     throw e;
   }
   return {};

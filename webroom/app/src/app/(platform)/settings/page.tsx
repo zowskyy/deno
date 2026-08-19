@@ -2,11 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listBlockedUsers, listIncomingRequests } from "@/lib/friends";
 import { listPendingGuestbookEntries } from "@/lib/guestbook";
+import { getPageDocument } from "@/lib/pageDocument";
 import { getCurrentUser } from "@/lib/session";
 import {
   acceptIncomingAction,
   approveGuestbookAction,
   declineIncomingAction,
+  panicModeAction,
   rejectGuestbookAction,
   unblockAction,
 } from "./actions";
@@ -18,6 +20,8 @@ export default async function SettingsPage() {
   const incoming = listIncomingRequests(viewer.id);
   const blocked = listBlockedUsers(viewer.id);
   const pendingGuestbook = listPendingGuestbookEntries(viewer.id);
+  const stored = getPageDocument(viewer.id);
+  const panicActive = stored?.hiddenFromDiscovery && stored.visibility === "unlisted";
 
   return (
     <main className="container">
@@ -26,8 +30,25 @@ export default async function SettingsPage() {
       </p>
       <h1>Settings</h1>
       <p style={{ color: "var(--ink-soft)" }}>
-        Friend requests, blocks, and guestbook moderation for @{viewer.handle}.
+        Friend requests, blocks, guestbook moderation, and safety controls for @{viewer.handle}.
       </p>
+
+      <section className="settings-section">
+        <h2>Panic mode</h2>
+        <p className="settings-empty" style={{ marginBottom: "0.75rem" }}>
+          Instantly hide your page from Explore and discovery, and switch visibility to unlisted. People with the direct
+          link can still visit.
+        </p>
+        {panicActive ? (
+          <p style={{ color: "var(--moss)", margin: 0 }}>Panic mode is on — your page is hidden from discovery and unlisted.</p>
+        ) : (
+          <form action={panicModeAction}>
+            <button type="submit" className="btn" style={{ background: "var(--danger)", borderColor: "var(--danger)" }}>
+              Activate panic mode
+            </button>
+          </form>
+        )}
+      </section>
 
       <section className="settings-section">
         <h2>Incoming friend requests</h2>

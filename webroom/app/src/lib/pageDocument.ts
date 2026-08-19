@@ -347,6 +347,12 @@ export function setGuestbookDisabled(userId: string, disabled: boolean): void {
   );
 }
 
+/** One-click safety: hide from discovery and drop to unlisted visibility. */
+export function activatePanicMode(userId: string): void {
+  setHiddenFromDiscovery(userId, true);
+  setVisibility(userId, "unlisted");
+}
+
 export function exportPageData(userId: string): string {
   const stored = getPageDocument(userId);
   if (!stored) throw new Error("No page to export.");

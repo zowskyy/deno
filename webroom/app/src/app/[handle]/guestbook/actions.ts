@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { findUserByHandle } from "@/lib/auth";
 import { GuestbookError, signGuestbook } from "@/lib/guestbook";
 import { getPageDocument } from "@/lib/pageDocument";
@@ -9,7 +9,10 @@ import { getCurrentUser } from "@/lib/session";
 
 export interface GuestbookState {
   error?: string;
+  success?: string;
 }
+
+export type GuestbookActionState = GuestbookState;
 
 export async function signGuestbookAction(
   handle: string,
@@ -43,5 +46,9 @@ export async function signGuestbookAction(
     throw e;
   }
 
-  redirect(`/@${handle}?guestbook=signed`);
+  const success = stored.document.guestbook.requireApproval
+    ? "Thanks — your message is waiting for approval."
+    : "Thanks — your message is on the guestbook.";
+  revalidatePath(`/@${handle}`);
+  return { success };
 }

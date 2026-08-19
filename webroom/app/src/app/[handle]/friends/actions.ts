@@ -13,14 +13,18 @@ import {
 import { checkRateLimit, RateLimitError, rateLimitActorKey } from "@/lib/rateLimit";
 import { getCurrentUser } from "@/lib/session";
 
-function handleFriendError(e: unknown): never | { error: string } {
+export interface FriendActionState {
+  error?: string;
+}
+
+function handleFriendError(e: unknown): never | FriendActionState {
   if (e instanceof FriendRequestError) return { error: e.message };
   if (e instanceof FriendLinkNotFoundError) return { error: e.message };
   if (e instanceof RateLimitError) return { error: e.message };
   throw e;
 }
 
-export async function sendFriendRequestAction(handle: string): Promise<{ error?: string }> {
+export async function sendFriendRequestAction(handle: string): Promise<FriendActionState> {
   const viewer = await getCurrentUser();
   if (!viewer) redirect(`/login?next=/@${handle}`);
 
@@ -41,7 +45,7 @@ export async function sendFriendRequestAction(handle: string): Promise<{ error?:
   return {};
 }
 
-export async function acceptFriendRequestAction(handle: string, requestId: string): Promise<{ error?: string }> {
+export async function acceptFriendRequestAction(handle: string, requestId: string): Promise<FriendActionState> {
   const viewer = await getCurrentUser();
   if (!viewer) redirect(`/login?next=/@${handle}`);
 
@@ -58,7 +62,7 @@ export async function acceptFriendRequestAction(handle: string, requestId: strin
   return {};
 }
 
-export async function declineFriendRequestAction(handle: string, requestId: string): Promise<{ error?: string }> {
+export async function declineFriendRequestAction(handle: string, requestId: string): Promise<FriendActionState> {
   const viewer = await getCurrentUser();
   if (!viewer) redirect(`/login?next=/@${handle}`);
 
@@ -75,6 +79,6 @@ export async function declineFriendRequestAction(handle: string, requestId: stri
   return {};
 }
 
-export async function unfriendAction(handle: string, requestId: string): Promise<{ error?: string }> {
+export async function unfriendAction(handle: string, requestId: string): Promise<FriendActionState> {
   return declineFriendRequestAction(handle, requestId);
 }

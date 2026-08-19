@@ -1,6 +1,16 @@
+import { headers } from "next/headers";
 import { getDb } from "./db";
 
 const WINDOW_MS = 60_000;
+
+/** Builds a rate-limit key from a logged-in user id or the request IP. */
+export async function rateLimitActorKey(prefix: string, userId: string | null): Promise<string> {
+  if (userId) return `${prefix}:${userId}`;
+  const h = await headers();
+  const forwarded = h.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || "anonymous";
+  return `${prefix}:${ip}`;
+}
 
 export class RateLimitError extends Error {
   retryAfterSeconds: number;

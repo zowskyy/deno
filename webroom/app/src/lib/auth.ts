@@ -11,7 +11,7 @@ const SALT_BYTES = 16;
 
 export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9_-]{1,29}$/;
 const RESERVED_HANDLES = new Set([
-  "explore", "make", "studio", "api", "admin", "reader", "report",
+  "explore", "make", "studio", "moderation", "api", "admin", "reader", "report",
   "block", "login", "signup", "logout", "settings", "static", "assets",
   "friends", "guestbook", "webroom", "help", "about", "terms", "privacy",
 ]);
