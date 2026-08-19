@@ -209,6 +209,36 @@ class TestStoreNotYetCreated:
             server.server_close()
 
 
+class TestStoreParentDirectoryMissing:
+    """When --store's parent directory doesn't exist, no writer
+    (gateway-probe --store) can create the file there either — the old
+    "will serve once a writer creates it" message was misleading in
+    exactly this case. Verify the warning is now accurate."""
+
+    def test_warns_that_no_writer_can_help_when_parent_dir_missing(self, tmp_path, capsys):
+        unreachable_db = tmp_path / "nonexistent_subdir" / "events.db"
+        server = create_server(str(unreachable_db), host="127.0.0.1", port=0)
+        server.server_close()
+
+        err = capsys.readouterr().err
+        assert "error:" in err
+        assert "does not exist" in err
+        assert "no writer" in err
+
+    def test_still_warns_will_serve_when_parent_dir_exists_but_file_cannot_open(self, tmp_path, capsys):
+        # Parent directory exists, but the path itself is a directory —
+        # sqlite3.connect fails, yet a writer creating a *different* valid
+        # file there could still eventually work, so keep the original
+        # "will serve once a writer creates it" framing here.
+        db_as_dir = tmp_path / "events.db"
+        db_as_dir.mkdir()
+        server = create_server(str(db_as_dir), host="127.0.0.1", port=0)
+        server.server_close()
+
+        err = capsys.readouterr().err
+        assert "will serve once a writer creates it" in err
+
+
 class TestDefaultBindAddress:
     def test_create_server_defaults_to_localhost(self, tmp_path):
         from probe.api import DEFAULT_HOST

@@ -180,11 +180,21 @@ def create_server(
     try:
         store_mod.open_store(db_path).close()
     except (sqlite3.OperationalError, sqlite3.DatabaseError, OSError) as exc:
-        print(
-            f"[gateway-probe-serve] warning: could not initialize schema at "
-            f"{db_path} ({exc}); will serve once a writer creates it",
-            file=sys.stderr,
-        )
+        parent = Path(db_path).parent
+        if not parent.is_dir():
+            print(
+                f"[gateway-probe-serve] error: parent directory for --store "
+                f"'{db_path}' does not exist ({parent}) — no writer (gateway-probe "
+                "--store) will be able to create it there either. Create the "
+                "directory first, or point --store at a path whose directory exists.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"[gateway-probe-serve] warning: could not initialize schema at "
+                f"{db_path} ({exc}); will serve once a writer creates it",
+                file=sys.stderr,
+            )
     handler_cls = _make_handler(db_path, device_db_path)
     return ThreadingHTTPServer((host, port), handler_cls)
 

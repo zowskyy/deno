@@ -188,23 +188,77 @@ function renderStorage(storage) {
   el.innerHTML = `<span class="${cls}">${esc(storage.retention_status)}</span> — database: ${mb} MB`;
 }
 
-async function refresh() {
+// Fetches and parses one endpoint, tagging the failure so callers can tell
+// "the server is unreachable" (network/CORS failure, fetch() itself rejects)
+// apart from "the server responded with something that isn't valid JSON"
+// (truncated response, wrong content behind a misconfigured proxy, etc.) —
+// these need different messages, since only one of them means "is the
+// server process even running?"
+async function fetchJSON(url) {
+  let res;
   try {
-    const [latestRes, historyRes, devicesRes] = await Promise.all([
-      fetch("/api/reports/latest"),
-      fetch("/api/reports"),
-      fetch("/api/devices"),
-    ]);
-    renderLatest(await latestRes.json());
-    const historyData = await historyRes.json();
-    renderHistory(historyData.reports);
-    renderStorage(historyData.storage);
-    const devicesData = await devicesRes.json();
-    renderDevices(devicesData);
-    renderActivity(devicesData);
-    document.getElementById("status").textContent = "Updated " + new Date().toLocaleTimeString();
+    res = await fetch(url);
   } catch (e) {
-    document.getElementById("status").textContent = "Connection error: " + e;
+    throw { kind: "network", detail: e };
+  }
+  try {
+    return await res.json();
+  } catch (e) {
+    throw { kind: "parse", detail: e };
+  }
+}
+
+function panelErrorMessage(kind) {
+  return kind === "network"
+    ? "Can't reach the gateway-probe server — is it still running?"
+    : "The server sent back something unexpected. Try refreshing the page.";
+}
+
+// Each panel's fetch/render is isolated: one endpoint failing (e.g. a
+// corrupt device store) must not leave the other panels stuck on
+// "Loading…" forever, and must not block them from refreshing on the
+// next tick either.
+async function refresh() {
+  const [latestResult, historyResult, devicesResult] = await Promise.allSettled([
+    fetchJSON("/api/reports/latest"),
+    fetchJSON("/api/reports"),
+    fetchJSON("/api/devices"),
+  ]);
+
+  if (latestResult.status === "fulfilled") {
+    renderLatest(latestResult.value);
+  } else {
+    document.getElementById("latest").innerHTML =
+      `<p class="bad">${esc(panelErrorMessage(latestResult.reason.kind))}</p>`;
+  }
+
+  if (historyResult.status === "fulfilled") {
+    renderHistory(historyResult.value.reports);
+    renderStorage(historyResult.value.storage);
+  } else {
+    document.querySelector("#history tbody").innerHTML =
+      `<tr><td colspan="5" class="bad">${esc(panelErrorMessage(historyResult.reason.kind))}</td></tr>`;
+  }
+
+  if (devicesResult.status === "fulfilled") {
+    renderDevices(devicesResult.value);
+    renderActivity(devicesResult.value);
+  } else {
+    const msg = `<p class="bad">${esc(panelErrorMessage(devicesResult.reason.kind))}</p>`;
+    document.getElementById("devices").innerHTML = msg;
+    document.getElementById("activity").innerHTML = msg;
+  }
+
+  const results = [latestResult, historyResult, devicesResult];
+  const anyFailed = results.some(r => r.status === "rejected");
+  const anySucceeded = results.some(r => r.status === "fulfilled");
+  const statusEl = document.getElementById("status");
+  if (anyFailed && !anySucceeded) {
+    statusEl.textContent = "Connection error — retrying every " + (REFRESH_MS / 1000) + "s";
+  } else if (anyFailed) {
+    statusEl.textContent = "Updated " + new Date().toLocaleTimeString() + " (some panels failed to load — see above)";
+  } else {
+    statusEl.textContent = "Updated " + new Date().toLocaleTimeString();
   }
 }
 
