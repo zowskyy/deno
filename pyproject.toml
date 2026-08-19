@@ -33,6 +33,7 @@ gateway-probe = "probe.cli:main"
 gateway-probe-serve = "probe.api:main"
 gateway-probe-compare = "probe.compare:main"
 gateway-probe-safety = "probe.safety:main"
+gateway-probe-devices = "probe.devices_cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["probe"]

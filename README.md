@@ -150,6 +150,35 @@ materialized (LAN-only iperf3 server, failed transfer, link genuinely under
 5 Mb/s), the reason is recorded in `load_validation.limitations` and no
 bufferbloat finding is emitted.
 
+## Device inventory ("what's on my network")
+
+A second, separate tool: lists devices currently visible on the local
+network (from the ARP/neighbor table — the same thing your router already
+tracks internally) and says, in plain language, what's connected and
+whether anything is new since the last scan.
+
+```sh
+gateway-probe-devices --store devices.db
+```
+
+```
+You have 9 devices connected: 2 Apple, 1 Samsung, 1 Sonos, 3 private/randomized,
+2 unknown vendor. 1 device new since last scan.
+```
+
+Read-only and local-only, same as the rest of this project: vendor names
+come from a small bundled table (`probe/oui_vendors.py`), not a live/cloud
+lookup. Devices using a randomized "private" MAC address (most modern
+phones, for privacy) are correctly reported as `randomized_private` rather
+than guessed at — this is detected via the real IEEE 802 locally-administered
+address bit, not a heuristic. Without `--store`, it just shows the current
+snapshot; with it, repeated runs against the same file build a baseline and
+flag genuinely new devices.
+
+This is intentionally a separate, small primitive rather than a bundled
+"do everything" feature — see `git log` on `probe/devices*.py` for the
+scoping rationale.
+
 ## QoS safety wrapper (opt-in, standalone)
 
 `probe/safety.py` implements the timed-rollback pattern for applying a new
@@ -184,20 +213,26 @@ confirmation logic without touching real `uci` or the network.
 gateway-probe/
 ├── probe/
 │   ├── __init__.py
-│   ├── cli.py           # argparse entry point (gateway-probe)
-│   ├── discovery.py     # auto-detect WAN interface
-│   ├── interfaces.py    # link state
-│   ├── routes.py        # routing table
-│   ├── dns.py           # DNS probes
-│   ├── latency.py       # ping + iperf3
-│   ├── qdisc.py         # CAKE / tc stats
-│   ├── classifier.py    # deterministic findings
-│   ├── report.py        # assembles everything into one report
-│   ├── store.py         # SQLite event store (gateway-probe --store)
-│   ├── api.py           # read-only HTTP API + dashboard (gateway-probe-serve)
-│   ├── compare.py        # idle-vs-loaded delta tool (gateway-probe-compare)
-│   ├── safety.py         # QoS timed-rollback wrapper (gateway-probe-safety)
-│   ├── shell.py          # subprocess helper that never crashes on missing tools
+│   ├── cli.py             # argparse entry point (gateway-probe)
+│   ├── discovery.py       # auto-detect WAN interface
+│   ├── interfaces.py      # link state
+│   ├── routes.py          # routing table
+│   ├── dns.py             # DNS probes
+│   ├── latency.py         # ping + iperf3
+│   ├── qdisc.py           # CAKE / tc stats
+│   ├── classifier.py      # deterministic findings
+│   ├── report.py          # assembles everything into one report
+│   ├── store.py           # SQLite event store (gateway-probe --store)
+│   ├── config.py          # TOML config loading
+│   ├── api.py             # read-only HTTP API + dashboard (gateway-probe-serve)
+│   ├── compare.py         # idle-vs-loaded delta tool (gateway-probe-compare)
+│   ├── safety.py          # QoS timed-rollback wrapper (gateway-probe-safety)
+│   ├── shell.py           # subprocess helper that never crashes on missing tools
+│   ├── devices.py         # ARP/neighbor-table parsing + MAC classification
+│   ├── device_history.py  # SQLite baseline for new-device detection
+│   ├── devices_report.py  # plain-language device report
+│   ├── devices_cli.py     # argparse entry point (gateway-probe-devices)
+│   ├── oui_vendors.py     # small bundled MAC-vendor lookup table
 │   └── static/
 │       └── dashboard.html
 ├── schemas/
@@ -205,13 +240,22 @@ gateway-probe/
 ├── tests/
 │   ├── test_classification.py
 │   ├── test_compare.py
+│   ├── test_config.py
 │   ├── test_store.py
 │   ├── test_api.py
 │   ├── test_safety.py
 │   ├── test_shell.py
+│   ├── test_latency.py
+│   ├── test_qdisc.py
+│   ├── test_cli.py
+│   ├── test_devices.py
+│   ├── test_device_history.py
+│   ├── test_devices_report.py
+│   ├── test_devices_cli.py
 │   └── fixtures/
 │       └── sample_report.json
-├── reports/              # default place to keep ad-hoc report.json / report.db files
+├── deployment/            # install guides, systemd/procd units, test scripts
+├── reports/               # default place to keep ad-hoc report.json / report.db files
 └── pyproject.toml
 ```
 
