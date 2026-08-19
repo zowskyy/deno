@@ -55,6 +55,19 @@ export function reconcileDuplicateOpenAppeals(db: DatabaseSync): void {
   }
 }
 
+/** Restore legacy installed_plugins table after a failed migration attempt. */
+function restoreLegacyInstalledPluginsTable(db: DatabaseSync): void {
+  const legacy = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'installed_plugins_legacy'")
+    .get() as { name: string } | undefined;
+  if (!legacy) return;
+  const current = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'installed_plugins'")
+    .get() as { name: string } | undefined;
+  if (current) db.exec("DROP TABLE installed_plugins");
+  db.exec("ALTER TABLE installed_plugins_legacy RENAME TO installed_plugins");
+}
+
 /** Upgrade legacy global plugin installs to per-user ownership. */
 function migrateInstalledPluginsIfNeeded(db: DatabaseSync): void {
   const legacyTable = db
@@ -65,31 +78,49 @@ function migrateInstalledPluginsIfNeeded(db: DatabaseSync): void {
   const legacyRows = db
     .prepare("SELECT id, slug, manifest_json, installed_at FROM installed_plugins")
     .all() as { id: string; slug: string; manifest_json: string; installed_at: string }[];
-  db.exec("ALTER TABLE installed_plugins RENAME TO installed_plugins_legacy");
-  db.exec(
-    `CREATE TABLE installed_plugins (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      slug TEXT NOT NULL,
-      manifest_json TEXT NOT NULL,
-      installed_at TEXT NOT NULL,
-      UNIQUE (user_id, slug)
-    )`,
-  );
-  db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
+
   if (legacyRows.length > 0) {
-    const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
-    const insert = db.prepare(
-      `INSERT INTO installed_plugins (id, user_id, slug, manifest_json, installed_at)
-       VALUES (?, ?, ?, ?, ?)`,
+    const userCount = (db.prepare("SELECT COUNT(*) as c FROM users").get() as { c: number }).c;
+    if (userCount === 0) return;
+  }
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.exec("ALTER TABLE installed_plugins RENAME TO installed_plugins_legacy");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL,
+        UNIQUE (user_id, slug)
+      )`,
     );
-    for (const user of users) {
-      for (const row of legacyRows) {
-        insert.run(randomUUID(), user.id, row.slug, row.manifest_json, row.installed_at);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
+    if (legacyRows.length > 0) {
+      const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
+      const insert = db.prepare(
+        `INSERT INTO installed_plugins (id, user_id, slug, manifest_json, installed_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      );
+      for (const user of users) {
+        for (const row of legacyRows) {
+          insert.run(randomUUID(), user.id, row.slug, row.manifest_json, row.installed_at);
+        }
       }
     }
+    db.exec("DROP TABLE IF EXISTS installed_plugins_legacy");
+    db.exec("COMMIT");
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      /* ignore rollback errors */
+    }
+    restoreLegacyInstalledPluginsTable(db);
+    throw error;
   }
-  db.exec("DROP TABLE IF EXISTS installed_plugins_legacy");
 }
 
 /** Apply schema bootstrap and incremental migrations. */
@@ -99,6 +130,10 @@ function migrate(db: DatabaseSync): void {
   const schemaPath = join(__dirname, "schema.sql");
   const schema = readFileSync(schemaPath, "utf-8");
   db.exec(schema);
+
+  if (columnExists(db, "installed_plugins", "user_id") && !indexExists(db, "idx_installed_plugins_user")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
+  }
 
   // Incremental migrations for existing databases.
   if (!columnExists(db, "users", "is_moderator")) {

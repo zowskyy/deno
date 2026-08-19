@@ -7,8 +7,10 @@ import { resetDbForTests } from "./db";
 import {
   AssetError,
   getUserAsset,
+  InvalidUploadRequestError,
   maxUploadBytes,
   maxUploadRequestBytes,
+  parseBoundedFormData,
   readAssetFile,
   readBoundedBody,
   storeUserAsset,
@@ -71,6 +73,19 @@ describe("readBoundedBody", () => {
     });
     const result = await readBoundedBody(request, maxUploadRequestBytes());
     expect(result.length).toBe(512);
+  });
+});
+
+describe("parseBoundedFormData", () => {
+  it("throws InvalidUploadRequestError for non-multipart bodies", async () => {
+    const request = new Request("http://localhost/upload", {
+      method: "POST",
+      body: "not multipart",
+      headers: { "content-type": "text/plain" },
+    });
+    await expect(parseBoundedFormData(request, maxUploadRequestBytes())).rejects.toThrow(
+      InvalidUploadRequestError,
+    );
   });
 });
 

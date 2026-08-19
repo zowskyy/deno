@@ -227,6 +227,7 @@ export function reviewThemeReport(
 ): boolean {
   const db = getDb();
   const now = new Date().toISOString();
+  const normalizedNote = note.trim() || null;
 
   db.exec("BEGIN IMMEDIATE");
   try {
@@ -234,13 +235,18 @@ export function reviewThemeReport(
       .prepare(
         "UPDATE theme_reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
       )
-      .run(status, moderatorId, note.trim() || null, now, reportId);
+      .run(status, moderatorId, normalizedNote, now, reportId);
     if (result.changes === 0) {
       db.exec("ROLLBACK");
       return false;
     }
 
-    logModeratorAction(moderatorId, `theme_report_${status}`, null, `reportId:${reportId}${note ? ` — ${note}` : ""}`);
+    logModeratorAction(
+      moderatorId,
+      `theme_report_${status}`,
+      null,
+      `reportId:${reportId}${normalizedNote ? ` — ${normalizedNote}` : ""}`,
+    );
     db.exec("COMMIT");
     return true;
   } catch (error) {

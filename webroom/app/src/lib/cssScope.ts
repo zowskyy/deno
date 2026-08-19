@@ -106,11 +106,38 @@ function canonicalizeCss(css: string): string {
   return decodeCssEscapes(stripCssComments(css)).replace(/\s+/g, " ");
 }
 
+/** Remove quoted string literals so pattern scans ignore harmless content values. */
+function stripQuotedStrings(css: string): string {
+  return css
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''");
+}
+
+/** Scan canonical CSS for blocked patterns outside quoted strings. */
+function findBlockedPatterns(canonical: string): string[] {
+  const rejected: string[] = [];
+  const scanTarget = stripQuotedStrings(canonical);
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(scanTarget)) {
+      rejected.push(`Blocked pattern: ${pattern.source}`);
+    }
+  }
+  return rejected;
+}
+
 /** Reject fixed/absolute positioning in profile CSS (cascade-safe). */
 function rejectUnsafeDeclarations(body: string, rejected: string[]): boolean {
   const normalized = canonicalizeCss(body);
-  if (/position\s*:\s*(fixed|absolute)/i.test(normalized)) {
+  if (/\bposition\s*:\s*(fixed|absolute)\b/i.test(normalized)) {
     rejected.push("Fixed and absolute positioning are not allowed.");
+    return true;
+  }
+  if (/\bposition\s*:\s*var\s*\(/i.test(normalized)) {
+    rejected.push("Position via custom properties is not allowed.");
+    return true;
+  }
+  if (/--[a-z0-9_-]+\s*:\s*(fixed|absolute)\b/i.test(normalized)) {
+    rejected.push("Custom properties cannot store fixed or absolute positioning values.");
     return true;
   }
   return false;
@@ -146,11 +173,7 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
   }
 
   const canonical = canonicalizeCss(raw);
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(canonical)) {
-      rejected.push(`Blocked pattern: ${pattern.source}`);
-    }
-  }
+  rejected.push(...findBlockedPatterns(canonical));
 
   if (rejected.length > 0) return { css: "", warnings, rejected };
 

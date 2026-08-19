@@ -263,5 +263,3 @@ CREATE TABLE IF NOT EXISTS installed_plugins (
   UNIQUE (user_id, slug)
 );
 
-CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at);
-

@@ -71,12 +71,21 @@ describe("scopeProfileCss", () => {
     expect(result.css).toBe("");
   });
 
-  it("preserves quoted strings when stripping comments", () => {
+  it("allows javascript: inside quoted content strings", () => {
     const result = scopeProfileCss(
       '.x { content: "/* not a comment */ javascript:alert(1)"; color: red; }',
       ".profile-scope--x",
     );
-    expect(result.rejected.some((r) => r.includes("javascript:"))).toBe(true);
+    expect(result.rejected).toHaveLength(0);
+    expect(result.css).toContain("content:");
+  });
+
+  it("rejects position via custom property", () => {
+    const result = scopeProfileCss(
+      ":root { --overlay: fixed; } .trap { position: var(--overlay); }",
+      ".profile-scope--x",
+    );
+    expect(result.rejected.some((r) => r.toLowerCase().includes("position"))).toBe(true);
     expect(result.css).toBe("");
   });
 

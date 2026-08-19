@@ -5,6 +5,7 @@ import {
   parseBoundedFormData,
   storeUserAsset,
   AssetError,
+  InvalidUploadRequestError,
 } from "@/lib/assets";
 import { getCurrentUser } from "@/lib/session";
 
@@ -17,6 +18,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     form = await parseBoundedFormData(request, maxUploadRequestBytes());
   } catch (error) {
+    if (error instanceof InvalidUploadRequestError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof AssetError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }

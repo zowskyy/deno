@@ -9,6 +9,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 /** Error thrown when an upload fails validation or storage. */
 export class AssetError extends Error {}
 
+/** Error thrown when multipart upload body cannot be parsed. */
+export class InvalidUploadRequestError extends AssetError {}
+
 /** Allowed MIME types for image uploads. */
 export const IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 /** Allowed MIME types for audio uploads. */
@@ -82,7 +85,11 @@ export async function parseBoundedFormData(request: Request, maxBytes: number): 
   const body = await readBoundedBody(request, maxBytes);
   const bytes = Uint8Array.from(body);
   const blob = new Blob([bytes], { type: contentType });
-  return new Response(blob, { headers: { "content-type": contentType } }).formData();
+  try {
+    return await new Response(blob, { headers: { "content-type": contentType } }).formData();
+  } catch {
+    throw new InvalidUploadRequestError("Upload request body is not valid multipart form data.");
+  }
 }
 
 /** Store an uploaded file and record metadata in the database. */

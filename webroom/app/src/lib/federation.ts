@@ -129,10 +129,15 @@ export function isPrivateHost(host: string): boolean {
   if (h === "localhost" || h === "0.0.0.0" || h.endsWith(".local")) return true;
 
   if (h.includes(":")) {
-    return h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80:");
+    return isPrivateIpv6(h);
   }
 
-  const ipv4 = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  return isPrivateIpv4(h);
+}
+
+/** Return true for private, loopback, link-local, or carrier-grade NAT IPv4 literals. */
+function isPrivateIpv4(host: string): boolean {
+  const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
   if (!ipv4) return false;
 
   const a = Number(ipv4[1]);
@@ -143,5 +148,23 @@ export function isPrivateHost(host: string): boolean {
   if (a === 172 && b >= 16 && b <= 31) return true;
   if (a === 169 && b === 254) return true;
   if (a === 100 && b >= 64 && b <= 127) return true;
+  return false;
+}
+
+/** Return true for loopback, ULA, link-local, or IPv4-mapped private IPv6 literals. */
+function isPrivateIpv6(host: string): boolean {
+  if (host === "::1") return true;
+
+  const v4Mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (v4Mapped) return isPrivateIpv4(v4Mapped[1]!);
+
+  if (host.startsWith("fc") || host.startsWith("fd")) return true;
+
+  const firstHextet = host.split(":")[0] ?? "";
+  const firstValue = parseInt(firstHextet, 16);
+  if (Number.isFinite(firstValue) && firstValue >= 0xfe80 && firstValue <= 0xfebf) {
+    return true;
+  }
+
   return false;
 }

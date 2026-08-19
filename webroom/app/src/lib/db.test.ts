@@ -126,4 +126,27 @@ describe("installed_plugins migration", () => {
     const slugs = db.prepare("SELECT DISTINCT slug FROM installed_plugins").all() as { slug: string }[];
     expect(slugs).toEqual([{ slug: "quote-card" }]);
   });
+
+  it("preserves legacy table when no users exist yet", () => {
+    resetDbForTests();
+    const db = getDb();
+    db.exec("DROP TABLE IF EXISTS installed_plugins");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL
+      )`,
+    );
+    db.prepare(
+      "INSERT INTO installed_plugins (id, slug, manifest_json, installed_at) VALUES (?, ?, ?, ?)",
+    ).run("legacy-plugin", "quote-card", '{"name":"Quote"}', "2025-01-01T00:00:00.000Z");
+
+    runMigrations(db);
+
+    expect(columnExists(db, "installed_plugins", "user_id")).toBe(false);
+    const count = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
+    expect(count.c).toBe(1);
+  });
 });
