@@ -1,7 +1,9 @@
 import { z } from "zod";
 
+/** Current page document schema version. */
 export const CURRENT_SCHEMA_VERSION = 3;
 
+/** Allowed page template identifiers. */
 const TEMPLATE_IDS = [
   "soft-web",
   "pixel-tavern",
@@ -10,8 +12,10 @@ const TEMPLATE_IDS = [
   "clean-portfolio",
   "start-simple",
 ] as const;
+/** Page template theme identifier. */
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
+/** Ordered list of renderable page section identifiers. */
 export const PAGE_PART_IDS = [
   "identity",
   "friends",
@@ -28,12 +32,16 @@ export const PAGE_PART_IDS = [
   "pixelArt",
   "miniPages",
 ] as const;
+/** Page section identifier used in the pageParts array. */
 export type PagePartId = (typeof PAGE_PART_IDS)[number];
 
+/** Zod schema for a six-digit hex color string. */
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "must be a 6-digit hex color");
+/** Zod schema for an http:// or https:// URL. */
 const httpUrl = z.string().url().refine((u) => u.startsWith("http://") || u.startsWith("https://"), {
   message: "must be http:// or https://",
 });
+/** Zod schema for a lowercase page tag slug. */
 const tagSlug = z
   .string()
   .trim()
@@ -41,6 +49,7 @@ const tagSlug = z
   .max(30)
   .regex(/^[a-z0-9][a-z0-9-]*$/, "tags must be lowercase letters, numbers, and hyphens");
 
+/** Optional theme fork attribution metadata. */
 const ThemeAttributionSchema = z
   .object({
     forkedFromThemeId: z.string().uuid().optional(),
@@ -49,6 +58,7 @@ const ThemeAttributionSchema = z
   })
   .optional();
 
+/** Visual theme settings for a page document. */
 const ThemeSchema = z.object({
   template: z.enum(TEMPLATE_IDS),
   accent: hexColor,
@@ -61,11 +71,13 @@ const ThemeSchema = z.object({
   attribution: ThemeAttributionSchema,
 });
 
+/** External link shown on a profile page. */
 const LinkItemSchema = z.object({
   label: z.string().trim().min(1).max(80),
   url: httpUrl,
 });
 
+/** Profile identity block (display name, bio, status). */
 const IdentitySchema = z.object({
   displayName: z.string().trim().min(1).max(60),
   bio: z.string().trim().max(280),
@@ -73,6 +85,7 @@ const IdentitySchema = z.object({
   avatarAssetId: z.string().uuid().optional(),
 });
 
+/** Image entry in the page gallery module. */
 const GalleryItemSchema = z.object({
   id: z.string().uuid(),
   url: httpUrl,
@@ -80,6 +93,7 @@ const GalleryItemSchema = z.object({
   caption: z.string().trim().max(280).optional(),
 });
 
+/** Blog post embedded in a page document. */
 const BlogPostSchema = z.object({
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(120),
@@ -88,18 +102,21 @@ const BlogPostSchema = z.object({
   publishedAt: z.string(),
 });
 
+/** Short dated devlog entry on a page. */
 const DevlogEntrySchema = z.object({
   id: z.string().uuid(),
   date: z.string(),
   body: z.string().trim().min(1).max(500),
 });
 
+/** Decorative badge displayed on a profile. */
 const BadgeSchema = z.object({
   id: z.string().uuid(),
   label: z.string().trim().min(1).max(40),
   emoji: z.string().max(8).optional(),
 });
 
+/** Fan shrine content block with optional image. */
 const ShrineSchema = z.object({
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(80),
@@ -108,12 +125,14 @@ const ShrineSchema = z.object({
   imageAlt: z.string().trim().max(200).optional(),
 });
 
+/** Track link in the playlist module. */
 const PlaylistTrackSchema = z.object({
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(120),
   url: httpUrl,
 });
 
+/** Pixel art grid piece with dimensions and color cells. */
 const PixelArtPieceSchema = z
   .object({
     id: z.string().uuid(),
@@ -126,6 +145,7 @@ const PixelArtPieceSchema = z
     message: "pixel array length must equal width × height",
   });
 
+/** Sub-page linked from a profile with its own slug and body. */
 const MiniPageSchema = z.object({
   id: z.string().uuid(),
   slug: z.string().trim().min(1).max(80).regex(/^[a-z0-9][a-z0-9-]*$/),
@@ -134,11 +154,13 @@ const MiniPageSchema = z.object({
   body: z.string().trim().max(20000).default(""),
 });
 
+/** Accessibility and authoring preference flags. */
 const AccessSchema = z.object({
   altTextReminder: z.boolean().default(true),
   contrastWarningsEnabled: z.boolean().default(true),
 });
 
+/** Zod schema for a complete version-3 page document. */
 export const PageDocumentSchema = z.object({
   version: z.literal(CURRENT_SCHEMA_VERSION),
   identity: IdentitySchema,
@@ -165,10 +187,15 @@ export const PageDocumentSchema = z.object({
   access: AccessSchema.default({ altTextReminder: true, contrastWarningsEnabled: true }),
 });
 
+/** Validated page document shape (schema version 3). */
 export type PageDocument = z.infer<typeof PageDocumentSchema>;
+/** Fan shrine module entry type. */
 export type Shrine = z.infer<typeof ShrineSchema>;
+/** Playlist module track entry type. */
 export type PlaylistTrack = z.infer<typeof PlaylistTrackSchema>;
+/** Pixel art module piece type. */
 export type PixelArtPiece = z.infer<typeof PixelArtPieceSchema>;
+/** Mini-page module entry type. */
 export type MiniPage = z.infer<typeof MiniPageSchema>;
 
 /** Persisted page document plus publish, visibility, and draft metadata. */

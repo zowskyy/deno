@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 
+/** Allowed user report reason codes. */
 const VALID_REASONS = ["harassment", "impersonation", "unsafe-content", "spam", "other"] as const;
+/** Union of valid report reason values. */
 export type ReportReason = (typeof VALID_REASONS)[number];
 
 /** Error thrown when a report reason or payload is invalid. */

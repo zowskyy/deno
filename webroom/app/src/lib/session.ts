@@ -5,7 +5,9 @@ import { createSession, destroySession, resolveSession, type User } from "./auth
 // Next.js's cookie jar. Kept separate from auth.ts so auth.ts stays
 // framework-free and fully unit-testable without a request context.
 
+/** HTTP-only session cookie name. */
 const COOKIE_NAME = "webroom_session";
+/** Session cookie max-age in seconds (30 days). */
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days, matches SESSION_TTL_MS in auth.ts
 
 /** Resolve the current user from the session cookie, if any. */

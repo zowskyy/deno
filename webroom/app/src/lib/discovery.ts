@@ -27,6 +27,7 @@ function parseDocMeta(documentJson: string): { displayName: string; tags: string
   }
 }
 
+/** SQL predicate shared by discoverable-page listing queries. */
 const DISCOVERABLE_WHERE = `
   pd.is_published = 1 AND pd.visibility = 'public' AND pd.hidden_from_discovery = 0
   AND u.is_blocked_platform = 0

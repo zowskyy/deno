@@ -2,6 +2,7 @@
 // Personal Webspaces safety policy — CSS alone is not a complete security
 // boundary, but these rules close the obvious escape hatches.
 
+/** Patterns that always reject profile custom CSS. */
 const BLOCKED_PATTERNS: RegExp[] = [
   /@import\b/i,
   /@font-face\b/i,
@@ -15,9 +16,12 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /<\s*\/?\s*style/i,
 ];
 
+/** Selectors that must not appear in scoped profile CSS. */
 const BLOCKED_SELECTORS = /\b(html|body|:root|iframe|dialog|script|\.top-bar|\.studio-|#studio)\b/i;
 
+/** Maximum allowed custom CSS length in characters. */
 const MAX_CSS_LENGTH = 8000;
+/** Maximum number of CSS rules allowed in custom CSS. */
 const MAX_RULE_COUNT = 80;
 
 /** Remove block comments from CSS source text, preserving content inside quoted strings. */

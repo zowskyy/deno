@@ -6,10 +6,14 @@ import { getDb } from "./db";
 // packages. scrypt is a well-established, still-secure KDF and this is
 // the pattern Node's own docs recommend for password storage.
 
+/** scrypt derived-key length in bytes. */
 const SCRYPT_KEYLEN = 64;
+/** Random salt length in bytes for password hashing. */
 const SALT_BYTES = 16;
 
+/** Allowed handle pattern: lowercase alphanumeric, underscore, hyphen; 2–30 chars. */
 export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9_-]{1,29}$/;
+/** Handles reserved for platform routes and must not be registered. */
 const RESERVED_HANDLES = new Set([
   "explore", "make", "studio", "moderation", "api", "admin", "reader", "report",
   "block", "login", "signup", "logout", "settings", "static", "assets",
@@ -55,6 +59,7 @@ function hashPassword(password: string): string {
 // when a handle doesn't exist — keeps that codepath's timing shaped the
 // same as the real one instead of hand-typing a hex string that could
 // silently be the wrong length.
+/** Precomputed hash used for constant-time login checks on unknown users. */
 const DUMMY_HASH = hashPassword(randomBytes(32).toString("hex"));
 
 /** Verify a password against a stored scrypt hash. */
@@ -168,6 +173,7 @@ export function authenticateBlockedForAppeal(rawHandle: string, password: string
   return { id: row.id, handle: row.handle, createdAt: row.created_at };
 }
 
+/** Session lifetime in milliseconds (30 days). */
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /** Returns the raw session token (only ever shown to the client once, as a cookie value). */

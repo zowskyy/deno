@@ -28,6 +28,7 @@ export interface PageModuleDefinition {
   render: (ctx: PageRenderContext) => ReactNode | null;
 }
 
+/** Format an ISO timestamp for display in page modules. */
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -36,6 +37,7 @@ function formatDate(iso: string): string {
   }
 }
 
+/** Fallback renderer for unknown or future page module types. */
 function UnsupportedModule({ type }: { type: string }) {
   return (
     <section className="page-part page-unsupported" aria-label="Unsupported module">

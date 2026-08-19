@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { getDb } from "./db";
 
+/** Rate-limit window duration in milliseconds. */
 const WINDOW_MS = 60_000;
 
 /** Builds a rate-limit key from a logged-in user id or the request IP. */

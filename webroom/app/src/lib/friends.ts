@@ -165,6 +165,7 @@ export function unblockUser(blockerId: string, blockedId: string): void {
   db.prepare("DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?").run(blockerId, blockedId);
 }
 
+/** Viewer-to-user friend relationship state for profile actions. */
 export type FriendRelationship =
   | { status: "none" }
   | { status: "pending_sent"; requestId: string }

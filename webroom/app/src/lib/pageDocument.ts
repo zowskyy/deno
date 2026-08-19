@@ -153,6 +153,7 @@ export function getPageDocument(userId: string): StoredPage | null {
   return rowToStored(row);
 }
 
+/** Maximum number of page versions retained per user. */
 const MAX_VERSIONS_KEPT = 50;
 
 /** Validate, persist, and version a user's published page document. */

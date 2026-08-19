@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/** Directory containing schema.sql for database initialization. */
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let dbInstance: DatabaseSync | undefined;

@@ -19,6 +19,7 @@ export const TEMPLATE_MOODS: TemplateMood[] = [
   { id: "start-simple", label: "Start Simple", tagline: "Blank canvas, your rules", accent: "#e0526b", background: "#f1ede9" },
 ];
 
+/** Prompt templates for the surprise shrine creative spark. */
 const SHRINE_PROMPTS = [
   { title: "A band I never got over", body: "This corner is for the music that still lives in my head rent-free." },
   { title: "My favorite game", body: "Hours lost, stories found. Still thinking about the last boss." },
@@ -45,6 +46,7 @@ const BADGE_PACKS: { emoji: string; label: string }[][] = [
   ],
 ];
 
+/** Accent/background pairs for the surprise-colors creative spark. */
 const COLOR_PALETTES = [
   { accent: "#e0526b", background: "#f6ecec" },
   { accent: "#ff4db8", background: "#160a23" },
@@ -66,6 +68,7 @@ function ensurePart(parts: PagePartId[], part: PagePartId): PagePartId[] {
   return parts.includes(part) ? parts : [...parts, part];
 }
 
+/** Identifier for a one-click creative spark preset in Studio. */
 export type CreativeSparkId =
   | "surprise-colors"
   | "add-shrine"
