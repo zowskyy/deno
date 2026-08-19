@@ -43,7 +43,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--target",
         metavar="IP_OR_HOST",
-        default="1.1.1.1",
+        default=None,
         help="Public target for latency probes (default: 1.1.1.1).",
     )
     parser.add_argument(
@@ -71,6 +71,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=60,
         metavar="N",
         help="Number of pings in idle mode (default: 60).",
+    )
+    parser.add_argument(
+        "--min-valid-throughput",
+        type=float,
+        default=5.0,
+        metavar="MBPS",
+        help=(
+            "Minimum iperf3 throughput (Mb/s) for a loaded test to be considered "
+            "valid evidence of WAN load — lower this on slow (e.g. rural/satellite) "
+            "links, or the classifier will suppress real bufferbloat findings (default: 5.0)."
+        ),
     )
     parser.add_argument(
         "--idle-baseline-p95",
@@ -135,6 +146,9 @@ def main(argv: list[str] | None = None) -> int:
         if not args.iperf_server and cfg.latency.iperf_server:
             args.iperf_server = cfg.latency.iperf_server
 
+    if not args.target:
+        args.target = "1.1.1.1"
+
     # Auto-discover WAN interface
     wan_interface = args.wan_interface
     if not wan_interface:
@@ -172,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         idle_ping_count=args.idle_pings,
         dns_hostname=args.dns_hostname,
         idle_baseline_p95_ms=args.idle_baseline_p95,
+        min_valid_throughput_mbps=args.min_valid_throughput,
     )
 
     indent = 2 if args.pretty else None
@@ -184,12 +199,26 @@ def main(argv: list[str] | None = None) -> int:
         print(text)
 
     if args.store:
-        from .store import open_store, save_report
+        from .config import RetentionConfig
+        from .store import apply_retention, open_store, save_report
+
+        retention_cfg = cfg.retention if args.config else RetentionConfig()
 
         conn = open_store(args.store)
         row_id = save_report(conn, report)
-        conn.close()
         print(f"[gateway-probe] report #{row_id} saved to {args.store}", file=sys.stderr)
+
+        try:
+            event = apply_retention(conn, args.store, retention_cfg)
+            if event["records_deleted"] > 0:
+                print(
+                    f"[gateway-probe] retention: {event['details']}",
+                    file=sys.stderr,
+                )
+        except Exception as exc:
+            print(f"[gateway-probe] warning: retention cleanup failed: {exc}", file=sys.stderr)
+        finally:
+            conn.close()
 
     # Print findings summary to stderr
     findings = report.get("findings", [])

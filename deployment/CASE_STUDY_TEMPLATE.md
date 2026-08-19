@@ -184,7 +184,7 @@ Each report includes:
 - Idle and loaded latency percentiles (p50, p95)
 - DNS resolution time
 - CAKE qdisc drops, marks, backlog statistics
-- Deterministic findings (physical_link, latency_increased_*, cake_aqm_events_observed, etc.)
+- Deterministic findings (physical_link_unavailable, latency_increased_*, cake_aqm_events_observed, etc.)
 
 ---
 

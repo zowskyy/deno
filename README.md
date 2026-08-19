@@ -112,10 +112,11 @@ on traffic forwarding or on any in-progress probe.
   "interface": { "name", "carrier", "speed_mbps", "rx_errors", "tx_errors" },
   "routing":   { "default_route_present", "gateway", "routes" },
   "latency":   { "mode", "target", "gateway_p95_ms", "public_p95_ms",
-                 "loss_percent", "delta_rtt_p95_ms", ... },
+                 "loss_percent", "delta_rtt_p95_ms", "idle_baseline_p95_ms",
+                 "load_validation": { "valid_for_wan_comparison", "limitations", ... }, ... },
   "dns":       { "server", "hostname", "success", "p95_ms" },
   "qdisc":     { "cake_detected", "drops", "marks", "backlog_bytes" },
-  "findings":  [ { "category", "confidence", "reason" } ]
+  "findings":  [ { "category", "confidence", "evidence", "interpretation" } ]
 }
 ```
 
@@ -124,20 +125,30 @@ See `schemas/probe-report.schema.json` for the full JSON Schema.
 ## Diagnostic classifier
 
 Every report includes a `findings` list of deterministic rule-based
-diagnostics — no ML. Example categories:
+diagnostics — no ML. Findings describe measured evidence, not root-cause
+verdicts: each has an `evidence` object (the raw measurements) and an
+`interpretation` string (a plain-language explanation of what that evidence
+shows). Example categories:
 
 | Category | Meaning |
 |---|---|
-| `physical_link` | No carrier on WAN interface |
-| `address_configuration` | No default route (DHCP failure) |
-| `gateway_or_local_network` | Gateway did not respond to ping |
-| `dns` | DNS resolution failed |
-| `wan_or_upstream` | Public target unreachable, gateway OK |
+| `physical_link_unavailable` | No carrier on WAN interface |
+| `default_route_missing` | No default route (DHCP failure) |
+| `next_hop_probe_failed` | Gateway did not respond to ping |
+| `dns_resolution_failed` | DNS resolution failed |
+| `public_path_probe_failed` | Public target unreachable, gateway OK |
 | `full_connectivity_loss` | Both gateway and public target unreachable |
-| `bufferbloat_no_cake` | High loaded RTT, CAKE not detected |
-| `bufferbloat_with_cake` | High loaded RTT despite CAKE |
-| `packet_loss` | Loss > 5% |
-| `cake_drops` | CAKE drop counter is high |
+| `latency_increased_with_cake_not_detected` | High loaded RTT under confirmed load, CAKE not detected |
+| `latency_increased_while_cake_traffic_observed` | High loaded RTT under confirmed load despite CAKE |
+| `packet_loss_observed` | Loss > 5% |
+| `cake_aqm_events_observed` | CAKE drop/mark counters are high |
+
+Loaded-mode findings only fire when `latency.load_validation.valid_for_wan_comparison`
+is `true` — i.e. iperf3 actually reported throughput above the validity
+threshold (`--min-valid-throughput`, default 5 Mb/s). If the load never
+materialized (LAN-only iperf3 server, failed transfer, link genuinely under
+5 Mb/s), the reason is recorded in `load_validation.limitations` and no
+bufferbloat finding is emitted.
 
 ## QoS safety wrapper (opt-in, standalone)
 

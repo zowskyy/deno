@@ -20,10 +20,15 @@ def get_qdisc_stats(interface: str) -> dict:
         if m:
             drops = int(m.group(1))
 
-        # ECN marks appear in CAKE output as "marks N"
-        m = re.search(r"\bmarks\s+(\d+)", stdout)
+        # ECN marks appear as one "marks" line with one value per tin, e.g.
+        # "  marks                20           0           5" in
+        # diffserv3/diffserv4 mode (a common OpenWrt SQM preset). A plain
+        # `marks\s+(\d+)` capture only grabs the first tin's value, so a
+        # busy tin other than the first would be silently missed — sum all
+        # the values on the line instead.
+        m = re.search(r"^\s*marks((?:\s+\d+)+)\s*$", stdout, re.MULTILINE)
         if m:
-            marks = int(m.group(1))
+            marks = sum(int(x) for x in m.group(1).split())
 
         # "backlog Xb Ypkts"
         m = re.search(r"backlog\s+(\d+)b", stdout)

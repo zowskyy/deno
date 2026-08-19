@@ -1,6 +1,5 @@
 """WAN interface state collection."""
 
-import re
 from pathlib import Path
 
 from .shell import run_command as _run
@@ -31,11 +30,6 @@ def get_link_state(interface: str) -> dict:
             operstate = "UNKNOWN"
             # UNKNOWN often means the interface is up but has no L2 state machine
             carrier = True
-
-        m = re.search(r"link/ether", stdout)
-        if not m:
-            # Could be a VLAN or tunnel; still count as potentially up
-            pass
 
     # Prefer /sys/class/net for carrier and speed — more reliable than ip output
     sys_carrier = _read_sys(f"/sys/class/net/{interface}/carrier")

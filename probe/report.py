@@ -10,7 +10,7 @@ from typing import Literal
 from .classifier import classify
 from .dns import probe_dns
 from .interfaces import get_link_state
-from .latency import probe_loaded_latency
+from .latency import DEFAULT_MIN_VALID_THROUGHPUT_MBPS, probe_loaded_latency
 from .qdisc import get_qdisc_stats
 from .routes import get_route_table
 
@@ -29,6 +29,7 @@ def build_report(
     dns_hostname: str = "example.com",
     dns_samples: int = 5,
     idle_baseline_p95_ms: float | None = None,
+    min_valid_throughput_mbps: float = DEFAULT_MIN_VALID_THROUGHPUT_MBPS,
 ) -> dict:
     """Collect all probe data and return a complete, normalized report.
 
@@ -51,7 +52,10 @@ def build_report(
         iperf_server=iperf_server,
         duration=duration,
         ping_count=idle_ping_count if mode == "idle" else None,
+        min_valid_throughput_mbps=min_valid_throughput_mbps,
     )
+
+    latency["idle_baseline_p95_ms"] = idle_baseline_p95_ms
 
     if (
         mode != "idle"

@@ -10,11 +10,19 @@ from typing import Any
 
 @dataclass
 class RetentionConfig:
-    """Storage retention policy."""
+    """Storage retention policy.
+
+    Full reports older than full_report_days are aggregated into one
+    daily-summary row per day (report_count, avg_finding_count,
+    most_common_finding_category), then the originals are deleted. Summary
+    rows are kept until daily_summary_days, then deleted outright.
+    max_report_count and max_database_mb are hard caps enforced on top of
+    the age-based tiers: if either is exceeded, the oldest full reports are
+    deleted first (summaries are cheap and are not touched by these caps).
+    """
     max_database_mb: int = 100
     max_report_count: int = 10000
     full_report_days: int = 30
-    raw_sample_days: int = 7
     daily_summary_days: int = 180
     vacuum_threshold_percent: int = 25
 
@@ -62,10 +70,7 @@ class GatewayProbeConfig:
     @staticmethod
     def from_toml(path: str | Path) -> GatewayProbeConfig:
         """Load configuration from TOML file."""
-        try:
-            import tomllib
-        except ModuleNotFoundError:
-            import tomli as tomllib
+        import tomllib  # stdlib on the project's declared Python >=3.11 floor
 
         path = Path(path)
         if not path.exists():

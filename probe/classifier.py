@@ -112,13 +112,15 @@ def classify(report: dict) -> list[dict]:
     load_valid = latency.get("load_validation", {}).get("valid_for_wan_comparison", False)
 
     if delta is not None and delta > LATENCY_INCREASE_THRESHOLD_MS and load_valid:
+        idle_rtt = latency.get("idle_baseline_p95_ms")
+        loaded_rtt = latency.get("public_p95_ms")
         if cake:
             findings.append({
                 "category": "latency_increased_while_cake_traffic_observed",
                 "confidence": 0.70,
                 "evidence": {
-                    "idle_rtt_p95_ms": latency.get("public_p95_ms"),
-                    "loaded_rtt_p95_ms": latency.get("public_p95_ms"),
+                    "idle_rtt_p95_ms": idle_rtt,
+                    "loaded_rtt_p95_ms": loaded_rtt,
                     "delta_ms": delta,
                     "cake_detected": cake,
                 },
@@ -132,8 +134,8 @@ def classify(report: dict) -> list[dict]:
                 "category": "latency_increased_with_cake_not_detected",
                 "confidence": 0.88,
                 "evidence": {
-                    "idle_rtt_p95_ms": latency.get("public_p95_ms"),
-                    "loaded_rtt_p95_ms": latency.get("public_p95_ms"),
+                    "idle_rtt_p95_ms": idle_rtt,
+                    "loaded_rtt_p95_ms": loaded_rtt,
                     "delta_ms": delta,
                     "cake_detected": cake,
                 },

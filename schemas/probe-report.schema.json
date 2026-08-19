@@ -65,7 +65,21 @@
         "loss_percent": { "type": ["number", "null"] },
         "samples": { "type": "integer" },
         "loaded_throughput_mbps": { "type": ["number", "null"] },
-        "delta_rtt_p95_ms": { "type": ["number", "null"] }
+        "delta_rtt_p95_ms": { "type": ["number", "null"] },
+        "idle_baseline_p95_ms": { "type": ["number", "null"] },
+        "load_validation": {
+          "type": "object",
+          "properties": {
+            "requested_direction": { "type": ["string", "null"] },
+            "load_source": { "type": ["string", "null"] },
+            "iperf_reported_throughput_mbps": { "type": ["number", "null"] },
+            "valid_for_wan_comparison": { "type": "boolean" },
+            "limitations": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
       }
     },
     "dns": {
@@ -96,11 +110,12 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["category", "confidence", "reason"],
+        "required": ["category", "confidence", "evidence", "interpretation"],
         "properties": {
           "category": { "type": "string" },
           "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-          "reason": { "type": "string" }
+          "evidence": { "type": "object" },
+          "interpretation": { "type": "string" }
         }
       }
     }

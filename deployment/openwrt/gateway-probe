@@ -7,17 +7,21 @@ STOP=10
 PROG="/usr/local/bin/gateway-probe-serve"
 CONFIG="/etc/config/gateway-probe"
 DB="/overlay/gateway-probe/reports.db"
-PORT="${port:-8734}"
 
 config_load gateway_probe
 
 start_service() {
     mkdir -p /overlay/gateway-probe
 
+    local bind_address port
+    config_get bind_address "gateway_probe" "bind_address" "127.0.0.1"
+    config_get port "gateway_probe" "port" "8734"
+
     procd_open_instance
     procd_set_param command "$PROG" \
         --store "$DB" \
-        --port "$PORT"
+        --host "$bind_address" \
+        --port "$port"
 
     procd_set_param respawn 3600 5 5
     procd_set_param stdout 1

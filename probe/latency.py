@@ -9,6 +9,8 @@ from typing import Literal
 
 from .shell import run_command as _run
 
+DEFAULT_MIN_VALID_THROUGHPUT_MBPS = 5.0
+
 
 def _parse_ping_output(stdout: str) -> dict:
     """Extract p50/p95 and loss from ping -c N output."""
@@ -69,23 +71,35 @@ def probe_ping(target: str, count: int = 20, deadline: int = 30) -> dict:
     return result
 
 
-def _iperf3_throughput(server: str, duration: int, reverse: bool) -> float | None:
-    """Run iperf3 and return throughput in Mbps, or None on failure."""
+def _iperf3_throughput(server: str, duration: int, reverse: bool) -> tuple[float | None, str | None]:
+    """Run iperf3 and return (throughput_mbps, limitation_reason).
+
+    throughput_mbps is None on any failure; limitation_reason explains why,
+    for surfacing in the report's load_validation.limitations list.
+    """
     if not shutil.which("iperf3"):
-        return None
+        return None, "iperf3 is not installed on this host"
+
     command = ["iperf3", "-c", server, "-t", str(duration), "-J"]
     if reverse:
         command.append("-R")
+
+    rc, stdout, stderr = _run(command, timeout=duration + 30)
+    if rc == 127:
+        return None, "iperf3 is not installed on this host"
+    if rc == 124:
+        return None, f"iperf3 timed out after {duration + 30}s"
+    if rc != 0:
+        return None, f"iperf3 exited with code {rc}: {stderr or 'unknown error'}"
+
+    import json
     try:
-        rc, stdout, _ = _run(command, timeout=duration + 30)
-        if rc != 0:
-            return None
-        import json
         data = json.loads(stdout)
         bps = data["end"]["sum_received"]["bits_per_second"]
-        return round(bps / 1_000_000, 2)
-    except Exception:
-        return None
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        return None, f"could not parse iperf3 JSON output: {exc}"
+
+    return round(bps / 1_000_000, 2), None
 
 
 def probe_loaded_latency(
@@ -95,6 +109,7 @@ def probe_loaded_latency(
     iperf_server: str | None = None,
     duration: int = 30,
     ping_count: int | None = None,
+    min_valid_throughput_mbps: float = DEFAULT_MIN_VALID_THROUGHPUT_MBPS,
 ) -> dict:
     """
     Probe latency under the given *mode*.
@@ -149,13 +164,16 @@ def probe_loaded_latency(
     if not iperf_server:
         result["success"] = False
         result["error"] = "iperf_server is required for loaded latency tests"
+        result["load_validation"]["limitations"].append(
+            "no --iperf-server was provided; no load was generated"
+        )
         return result
 
-    throughput_holder: list[float | None] = [None]
+    iperf_holder: list[tuple[float | None, str | None]] = [(None, None)]
     reverse = mode == "download-loaded"
 
     def run_iperf() -> None:
-        throughput_holder[0] = _iperf3_throughput(iperf_server, duration, reverse)
+        iperf_holder[0] = _iperf3_throughput(iperf_server, duration, reverse)
 
     iperf_thread = threading.Thread(target=run_iperf, daemon=True)
     iperf_thread.start()
@@ -164,7 +182,7 @@ def probe_loaded_latency(
 
     iperf_thread.join(timeout=duration + 30)
 
-    throughput = throughput_holder[0]
+    throughput, iperf_limitation = iperf_holder[0]
     result.update(
         success=pub["success"],
         public_p50_ms=pub.get("p50_ms"),
@@ -175,6 +193,20 @@ def probe_loaded_latency(
     )
 
     result["load_validation"]["iperf_reported_throughput_mbps"] = throughput
-    result["load_validation"]["valid_for_wan_comparison"] = throughput is not None and throughput > 5.0
+
+    if iperf_limitation:
+        result["load_validation"]["limitations"].append(iperf_limitation)
+
+    if throughput is None:
+        result["load_validation"]["valid_for_wan_comparison"] = False
+    elif throughput <= min_valid_throughput_mbps:
+        result["load_validation"]["valid_for_wan_comparison"] = False
+        result["load_validation"]["limitations"].append(
+            f"iperf3 throughput ({throughput} Mb/s) did not exceed the "
+            f"{min_valid_throughput_mbps} Mb/s validity threshold — the load may "
+            "not have reached the WAN path, or the link itself is this slow"
+        )
+    else:
+        result["load_validation"]["valid_for_wan_comparison"] = True
 
     return result

@@ -8,7 +8,8 @@ Documentation=https://github.com/zowskyy/gateway-probe
 Type=oneshot
 User=gateway-probe
 Group=gateway-probe
-ExecStart=/usr/local/bin/gateway-probe idle \
+ExecStart=/usr/local/bin/gateway-probe \
+  --mode idle \
   --config /etc/gateway-probe/config.toml \
   --store /var/lib/gateway-probe/reports.db
 

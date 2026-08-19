@@ -4,6 +4,12 @@ Serves report history from the SQLite event store (probe.store). Read-only:
 there are no mutating endpoints, matching Phase 1's "observe and recommend,
 never change firewall or QoS settings" contract. Uses only the standard
 library so the gateway does not need extra packages installed.
+
+Every request connects to the store in SQLite's read-only URI mode, so this
+process never needs write access to the database file — it can run under a
+systemd/procd read-only bind mount, and it never runs retention/compaction
+(that is probe.cli's job, since only the writer process is guaranteed write
+access to the store).
 """
 
 from __future__ import annotations
@@ -20,6 +26,18 @@ from . import store as store_mod
 
 STATIC_DIR = Path(__file__).parent / "static"
 DEFAULT_PORT = 8734
+DEFAULT_HOST = "127.0.0.1"
+
+
+def _connect_readonly(db_path: str) -> sqlite3.Connection:
+    """Open *db_path* read-only via SQLite's URI mode.
+
+    Never requests SQLITE_OPEN_CREATE/READWRITE, so this works even when the
+    file lives on a read-only bind mount (systemd ReadOnlyPaths / a
+    read-only OpenWrt overlay). Raises sqlite3.OperationalError if the file
+    does not exist yet or genuinely cannot be opened.
+    """
+    return sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
 
 
 def _make_handler(db_path: str) -> type[BaseHTTPRequestHandler]:
@@ -45,16 +63,22 @@ def _make_handler(db_path: str) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:  # noqa: N802 (stdlib method name)
             path = urlparse(self.path).path
-            conn = sqlite3.connect(db_path)
+
+            if path in ("/", "/index.html"):
+                self._send_html((STATIC_DIR / "dashboard.html").read_text())
+                return
+
             try:
-                if path in ("/", "/index.html"):
-                    self._send_html((STATIC_DIR / "dashboard.html").read_text())
-                elif path == "/api/reports":
-                    from .config import RetentionConfig
-                    try:
-                        store_mod.apply_retention(conn, RetentionConfig())
-                    except Exception:
-                        pass
+                conn = _connect_readonly(db_path)
+            except sqlite3.OperationalError:
+                self._send_json(
+                    {"error": "report store is not available yet — no probe has run"},
+                    status=503,
+                )
+                return
+
+            try:
+                if path == "/api/reports":
                     status = store_mod.get_storage_status(conn, db_path)
                     self._send_json({
                         "storage": status,
@@ -86,16 +110,27 @@ def _make_handler(db_path: str) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-def create_server(db_path: str, host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> ThreadingHTTPServer:
+def create_server(db_path: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> ThreadingHTTPServer:
     """Build (but do not start) the read-only API/dashboard server."""
-    # Ensure the schema exists before any request handler connects, in case
-    # this server is started before probe.cli has ever written a report.
-    store_mod.open_store(db_path).close()
+    # Best-effort schema init for convenience (e.g. running the dashboard
+    # before any probe has ever written a report on a writable filesystem).
+    # This is NOT required for the server to work — do_GET always opens the
+    # store read-only — so a failure here (missing file, read-only mount,
+    # permission denied) is not fatal; the API will simply return 503 until
+    # a writer creates the store.
+    try:
+        store_mod.open_store(db_path).close()
+    except (sqlite3.OperationalError, sqlite3.DatabaseError, OSError) as exc:
+        print(
+            f"[gateway-probe-serve] warning: could not initialize schema at "
+            f"{db_path} ({exc}); will serve once a writer creates it",
+            file=sys.stderr,
+        )
     handler_cls = _make_handler(db_path)
     return ThreadingHTTPServer((host, port), handler_cls)
 
 
-def serve(db_path: str, host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:
+def serve(db_path: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
     """Start the API/dashboard server and block until interrupted.
 
     This process is independent of probe collection: stopping it never
@@ -118,11 +153,43 @@ def main(argv: list[str] | None = None) -> int:
         description="Local read-only HTTP API + dashboard for gateway-probe reports.",
     )
     parser.add_argument("--store", required=True, metavar="FILE", help="SQLite event-store file to serve")
-    parser.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Bind port (default: {DEFAULT_PORT})")
+    parser.add_argument(
+        "--host",
+        default=None,
+        help=f"Bind address (default: {DEFAULT_HOST}, or api.bind_address from --config)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help=f"Bind port (default: {DEFAULT_PORT}, or api.port from --config)",
+    )
+    parser.add_argument(
+        "--config",
+        metavar="FILE",
+        default=None,
+        help="Load host/port defaults from this TOML config file (optional).",
+    )
     args = parser.parse_args(argv)
 
-    serve(args.store, args.host, args.port)
+    host = args.host
+    port = args.port
+
+    if args.config:
+        from .config import GatewayProbeConfig
+
+        cfg = GatewayProbeConfig.from_toml(args.config)
+        if host is None:
+            host = cfg.api.bind_address
+        if port is None:
+            port = cfg.api.port
+
+    if host is None:
+        host = DEFAULT_HOST
+    if port is None:
+        port = DEFAULT_PORT
+
+    serve(args.store, host, port)
     return 0
 
 

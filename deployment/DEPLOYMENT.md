@@ -67,11 +67,9 @@ max_database_mb = 100
 # Maximum number of stored reports
 max_report_count = 10000
 
-# Keep full reports for this many days
+# Keep full reports for this many days (older ones are aggregated into
+# daily summaries and the originals deleted)
 full_report_days = 30
-
-# Keep raw ping samples for this many days
-raw_sample_days = 7
 
 # Keep daily summaries for this many days
 daily_summary_days = 180
@@ -149,17 +147,23 @@ chmod +x /etc/init.d/gateway-probe
 
 ### Configuration
 
+The OpenWrt `/etc/init.d/gateway-probe` script manages only the dashboard
+daemon (`gateway-probe-serve`) and reads its bind address/port from UCI.
 Create `/etc/config/gateway-probe`:
 
 ```
 config gateway_probe
-  option target '1.1.1.1'
-  option dns_server '1.1.1.1'
-  option iperf_server '192.168.1.100'
-  option max_database_mb '50'
-  option full_report_days '30'
-  option raw_sample_days '7'
+  option bind_address '192.168.1.1'
+  option port '8734'
 ```
+
+`bind_address` defaults to `127.0.0.1` (LAN devices won't be able to reach
+it) if omitted; set it to the router's LAN IP for LAN-wide dashboard
+access. Probe settings (target, DNS server, iperf3 server, retention) are
+separate — they go in a TOML file passed to `gateway-probe --config`, same
+as the Linux deployment; see the example above and schedule it with cron
+(OpenWrt's `procd` init scripts are best suited to long-running daemons
+like the dashboard, not short periodic jobs).
 
 ### Daemon operation
 
@@ -191,12 +195,21 @@ curl http://192.168.1.1:8734/api/reports
 
 ## Storage and Retention
 
-Both deployments use SQLite with configurable retention. The tool automatically:
+Both deployments use SQLite with configurable retention. Retention runs as
+part of `gateway-probe --store ...` (the writer process) after each report
+is saved — never from `gateway-probe-serve`, which only ever opens the
+store read-only and could be running under a read-only mount. The policy:
 
-1. Deletes raw ping samples after `raw_sample_days`.
-2. Aggregates full reports into daily summaries after `full_report_days`.
-3. Deletes full reports already represented by summaries.
-4. Compacts the database if fragmentation exceeds `vacuum_threshold_percent`.
+1. Aggregates full reports older than `full_report_days` into one
+   daily-summary row per day (report count, average finding count, most
+   common finding category), then deletes the originals.
+2. Deletes summary rows older than `daily_summary_days`.
+3. If more than `max_report_count` full reports remain, deletes the oldest
+   down to that limit.
+4. If the database file still exceeds `max_database_mb`, deletes the oldest
+   full reports in batches (never below the last 5 reports).
+5. Compacts the database (`VACUUM`) if free-page fragmentation exceeds
+   `vacuum_threshold_percent`.
 
 Monitor storage via the dashboard `/api/reports` endpoint:
 
@@ -207,11 +220,14 @@ Monitor storage via the dashboard `/api/reports` endpoint:
     "free_bytes": 71245824,
     "oldest_full_report": "2026-07-19T00:00:00Z",
     "retention_status": "healthy"
-  }
+  },
+  "reports": [ /* recent report summaries, newest first */ ]
 }
 ```
 
-If `retention_status` is `low_space`, the tool stops recording optional samples and emits a diagnostic finding. Loaded tests may not store raw samples.
+`retention_status` is `low_space` when free disk space drops below 2x the
+current database size — a signal to lower `max_database_mb` or
+`full_report_days`, not something the tool reacts to automatically.
 
 ## QoS Configuration and Safety
 
@@ -273,10 +289,12 @@ sqlite3 /var/lib/gateway-probe/reports.db ".tables"
 sqlite3 /var/lib/gateway-probe/reports.db "SELECT COUNT(*) FROM reports;"
 ```
 
-Manually trigger retention:
+Retention runs automatically every time `gateway-probe --store ...` saves a
+report — there is no separate compaction command. To trigger it on demand,
+just run a probe with the same `--store` file:
 
 ```bash
-gateway-probe --config /etc/gateway-probe/config.toml --store /var/lib/gateway-probe/reports.db --compact-only
+gateway-probe --config /etc/gateway-probe/config.toml --store /var/lib/gateway-probe/reports.db
 ```
 
 ### Missing utilities on OpenWrt
