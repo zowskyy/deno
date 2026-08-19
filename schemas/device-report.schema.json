@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "device-report.schema.json",
+  "title": "GatewayProbeDeviceReport",
+  "description": "Structured output from a single gateway-probe-devices run.",
+  "type": "object",
+  "required": ["schema_version", "timestamp", "source", "device_count", "counts", "devices", "summary"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semver of the report schema, e.g. '0.1'"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the scan ran."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where the ARP/neighbor data came from.",
+      "enum": ["ip neigh", "/proc/net/arp", "unavailable"]
+    },
+    "device_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "counts": {
+      "type": "object",
+      "required": ["known_vendor", "randomized_private", "unknown_vendor"],
+      "properties": {
+        "known_vendor": { "type": "integer", "minimum": 0 },
+        "randomized_private": { "type": "integer", "minimum": 0 },
+        "unknown_vendor": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/classifiedDevice" }
+    },
+    "new_device_count": {
+      "type": ["integer", "null"],
+      "description": "null when --store wasn't used (no baseline to compare against)."
+    },
+    "new_devices": {
+      "type": ["array", "null"],
+      "items": { "$ref": "#/$defs/classifiedDevice" }
+    },
+    "missing_device_count": {
+      "type": ["integer", "null"]
+    },
+    "missing_devices": {
+      "type": ["array", "null"],
+      "description": "MAC addresses (strings, not device objects) that were present in a prior scan but absent from this one.",
+      "items": { "type": "string" }
+    },
+    "is_first_scan": {
+      "type": ["boolean", "null"]
+    },
+    "events_this_scan": {
+      "type": ["array", "null"],
+      "items": { "$ref": "#/$defs/presenceEvent" }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Plain-language summary of this scan, meant to be read directly by a non-technical user."
+    }
+  },
+  "$defs": {
+    "classifiedDevice": {
+      "type": "object",
+      "required": ["mac", "vendor", "type"],
+      "properties": {
+        "ip": { "type": "string" },
+        "mac": {
+          "type": "string",
+          "description": "Normalized uppercase colon-separated MAC, e.g. '3C:5A:B4:12:34:56'."
+        },
+        "vendor": { "type": ["string", "null"] },
+        "type": {
+          "type": "string",
+          "enum": ["known_vendor", "randomized_private", "unknown_vendor"]
+        }
+      }
+    },
+    "presenceEvent": {
+      "type": "object",
+      "required": ["mac", "event_type"],
+      "properties": {
+        "mac": { "type": "string" },
+        "vendor": { "type": ["string", "null"] },
+        "type": { "type": ["string", "null"] },
+        "event_type": {
+          "type": "string",
+          "enum": ["device_new", "device_returned", "device_missing"]
+        }
+      }
+    }
+  }
+}

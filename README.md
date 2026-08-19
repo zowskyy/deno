@@ -186,7 +186,8 @@ activity."
 
 This is intentionally a separate, small primitive rather than a bundled
 "do everything" feature — see `git log` on `probe/devices*.py` for the
-scoping rationale.
+scoping rationale. See `schemas/device-report.schema.json` for the full
+JSON Schema.
 
 ## QoS safety wrapper (opt-in, standalone)
 
@@ -245,7 +246,8 @@ gateway-probe/
 │   └── static/
 │       └── dashboard.html
 ├── schemas/
-│   └── probe-report.schema.json
+│   ├── probe-report.schema.json
+│   └── device-report.schema.json
 ├── tests/
 │   ├── test_classification.py
 │   ├── test_compare.py
