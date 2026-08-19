@@ -157,6 +157,18 @@ export default async function ExplorePage({ searchParams }: Props) {
           </ul>
         </section>
       )}
+
+      <section className="explore-section">
+        <h2>Theme gallery</h2>
+        <p className="explore-section-note">
+          Shared looks to install or fork — creator credit and version history included.
+        </p>
+        <p>
+          <Link href="/explore/themes" className="btn secondary">
+            Browse themes
+          </Link>
+        </p>
+      </section>
     </main>
   );
 }
