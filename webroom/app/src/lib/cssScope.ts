@@ -20,17 +20,79 @@ const BLOCKED_SELECTORS = /\b(html|body|:root|iframe|dialog|script|\.top-bar|\.s
 const MAX_CSS_LENGTH = 8000;
 const MAX_RULE_COUNT = 80;
 
-/** Remove block comments from CSS source text. */
+/** Remove block comments from CSS source text, preserving content inside quoted strings. */
 function stripCssComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, "");
+  let out = "";
+  let i = 0;
+  let inSingle = false;
+  let inDouble = false;
+
+  while (i < css.length) {
+    const ch = css[i]!;
+    const next = css[i + 1];
+
+    if (!inSingle && !inDouble && ch === "/" && next === "*") {
+      const end = css.indexOf("*/", i + 2);
+      i = end === -1 ? css.length : end + 2;
+      continue;
+    }
+
+    if (!inDouble && ch === "'" && !inSingle) {
+      inSingle = true;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (inSingle) {
+      out += ch;
+      if (ch === "\\" && i + 1 < css.length) {
+        out += css[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === "'") inSingle = false;
+      i++;
+      continue;
+    }
+
+    if (!inSingle && ch === '"' && !inDouble) {
+      inDouble = true;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (inDouble) {
+      out += ch;
+      if (ch === "\\" && i + 1 < css.length) {
+        out += css[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === '"') inDouble = false;
+      i++;
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+}
+
+/** Map a decoded CSS code point to a safe Unicode scalar, or U+FFFD when invalid. */
+function safeCssCodePoint(hex: string): string {
+  const value = parseInt(hex, 16);
+  if (!Number.isFinite(value) || value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) {
+    return "\uFFFD";
+  }
+  return String.fromCodePoint(value);
 }
 
 /** Decode CSS escape sequences so obfuscated tokens match their literal forms. */
 function decodeCssEscapes(css: string): string {
   return css
-    .replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[\t\n\f\r ])?/g, (_, hex: string) =>
-      String.fromCodePoint(parseInt(hex, 16)),
-    )
+    .replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[\t\n\f\r ])?/g, (_, hex: string) => safeCssCodePoint(hex))
     .replace(/\\(?:\r\n|[\t\n\f\r ])?/g, "")
     .replace(/\\(.)/g, "$1");
 }
