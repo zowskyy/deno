@@ -240,7 +240,7 @@ export function reviewThemeReport(
       return false;
     }
 
-    logModeratorAction(moderatorId, `theme_report_${status}`, null, note);
+    logModeratorAction(moderatorId, `theme_report_${status}`, null, `reportId:${reportId}${note ? ` — ${note}` : ""}`);
     db.exec("COMMIT");
     return true;
   } catch (error) {

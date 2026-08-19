@@ -8,6 +8,7 @@ import { DirectMessageError, markConversationRead, sendDirectMessage } from "@/l
 
 export interface MessageActionState {
   error?: string;
+  sent?: boolean;
 }
 
 export async function sendMessageAction(
@@ -25,7 +26,7 @@ export async function sendMessageAction(
   try {
     await sendDirectMessage(user.id, recipient.id, body);
     revalidatePath("/messages");
-    return {};
+    return { sent: true };
   } catch (error) {
     if (error instanceof DirectMessageError) return { error: error.message };
     throw error;
