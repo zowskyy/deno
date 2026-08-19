@@ -1,4 +1,43 @@
-# gateway-probe
+# deno
+
+This repository contains **two unrelated products** that share no code, users, or
+runtime dependencies. Each has its own directory, documentation, and audience —
+clone for one and ignore the other.
+
+| Product | Directory | Audience |
+|---|---|---|
+| **Webroom** | [`webroom/`](webroom/) | People who want a personal homepage — make a page, give it a mood, publish it, wander others' corners without a feed or algorithm |
+| **gateway-probe** | [`probe/`](probe/), [`tests/`](tests/), [`deployment/`](deployment/) | OpenWrt / Linux gateway operators measuring bufferbloat, CAKE, and link health |
+
+---
+
+## Webroom
+
+**Make your corner of the internet. Wander into someone else's.**
+
+A personal homepage platform — not a feed, not a website builder. Pick a mood,
+fill your page with the things that are actually yours, publish at `/@yourname`,
+and discover other pages by wandering, tags, and friend links.
+
+**Full documentation:** [`webroom/README.md`](webroom/README.md) · **Product plan:** [`webroom/PLAN.md`](webroom/PLAN.md)
+
+### Quick start
+
+Requires Node.js ≥ 22.5 (for `node:sqlite`).
+
+```sh
+cd webroom/app
+npm install
+npm run build
+npm test          # optional — verify the suite
+npm run start     # http://localhost:3000
+```
+
+For local development with hot reload, use `npm run dev` instead of `build` + `start`.
+
+---
+
+## gateway-probe
 
 Read-only network diagnostic tool for OpenWrt / Linux gateways.
 
@@ -9,7 +48,7 @@ changed automatically** — the probe only observes and recommends. A separate,
 explicitly-invoked safety wrapper exists for supervised QoS changes with an
 automatic timed rollback (see below); it is never called by the probe itself.
 
-## Quick start
+### Quick start
 
 ```sh
 python3 -m venv .venv
@@ -31,7 +70,7 @@ gateway-probe \
   --store report.db
 ```
 
-## Loaded-latency testing
+### Loaded-latency testing
 
 Run concurrent iperf3 and ping to measure bufferbloat:
 
@@ -55,7 +94,7 @@ gateway-probe \
   --store report.db
 ```
 
-### Before/after comparison
+#### Before/after comparison
 
 For a rigorous before/after measurement, run one probe in `--mode idle` and
 one in a loaded mode, then compare the two reports:
@@ -81,7 +120,7 @@ Alternatively, pass `--idle-baseline-p95 <ms>` to a single loaded-mode
 `gateway-probe` run to compute `latency.delta_rtt_p95_ms` inline, without a
 separate compare step.
 
-## Dashboard and API
+### Dashboard and API
 
 Every report can be persisted to a local SQLite event store with `--store`.
 Serve that history as a read-only JSON API plus a simple browser dashboard:
@@ -104,7 +143,7 @@ The API/dashboard process only *reads* the store; it never runs probes
 itself and never touches network configuration. Stopping it has no effect
 on traffic forwarding or on any in-progress probe.
 
-## Report structure
+### Report structure
 
 ```
 {
@@ -124,7 +163,7 @@ on traffic forwarding or on any in-progress probe.
 
 See `schemas/probe-report.schema.json` for the full JSON Schema.
 
-## Diagnostic classifier
+### Diagnostic classifier
 
 Every report includes a `findings` list of deterministic rule-based
 diagnostics — no ML. Findings describe measured evidence, not root-cause
@@ -152,7 +191,7 @@ materialized (LAN-only iperf3 server, failed transfer, link genuinely under
 5 Mb/s), the reason is recorded in `load_validation.limitations` and no
 bufferbloat finding is emitted.
 
-## Device inventory ("what's on my network")
+### Device inventory ("what's on my network")
 
 A second, separate tool: lists devices currently visible on the local
 network (from the ARP/neighbor table — the same thing your router already
@@ -191,7 +230,7 @@ This is intentionally a separate, small primitive rather than a bundled
 scoping rationale. See `schemas/device-report.schema.json` for the full
 JSON Schema.
 
-## QoS safety wrapper (opt-in, standalone)
+### QoS safety wrapper (opt-in, standalone)
 
 `probe/safety.py` implements the timed-rollback pattern for applying a new
 SQM/CAKE configuration. This is the only part of gateway-probe that can
@@ -237,10 +276,9 @@ confirmation logic without touching real `uci` or the network — including
 a forced-interleaving test that proves `confirm()` and the timer's own
 rollback can never race each other into reporting the wrong outcome.
 
-## Repository layout
+### Repository layout
 
 ```
-gateway-probe/
 ├── probe/
 │   ├── __init__.py
 │   ├── cli.py             # argparse entry point (gateway-probe)
@@ -290,7 +328,7 @@ gateway-probe/
 └── pyproject.toml
 ```
 
-## Running tests
+### Running tests
 
 ```sh
 python3 -m venv .venv
@@ -303,7 +341,7 @@ pytest
 raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
 [PEP 668](https://peps.python.org/pep-0668/).)
 
-## Phase 1 acceptance criteria
+### Phase 1 acceptance criteria
 
 - [x] Measures link state and default-route state
 - [x] Measures gateway and public latency
@@ -323,7 +361,7 @@ raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
 - [x] Uses no cloud service — everything is local: stdlib HTTP server,
       SQLite file, and user-chosen ping/iperf3 targets
 
-## Constraints
+### Constraints
 
 - **Read-only by default**: the probe (`gateway-probe`) and dashboard
   (`gateway-probe-serve`) never change configuration.
@@ -333,6 +371,8 @@ raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
 - **No cloud**: all measurements are local or to user-chosen targets; the
   dashboard is a stdlib `http.server`, the store is a local SQLite file.
 - **No ML**: the classifier uses deterministic rules, testable in isolation.
+
+---
 
 ## License
 
