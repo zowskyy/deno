@@ -13,6 +13,12 @@ export interface AppealSummary {
   status: "open" | "granted" | "dismissed";
 }
 
+function isOpenAppealUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as { code?: string }).code;
+  return code === "SQLITE_CONSTRAINT_UNIQUE" || error.message.includes("UNIQUE constraint failed");
+}
+
 export function fileAppeal(userId: string, reason: string): void {
   const trimmed = reason.trim();
   if (!trimmed) throw new AppealError("Tell us why you're appealing.");
@@ -32,9 +38,16 @@ export function fileAppeal(userId: string, reason: string): void {
     .get(userId);
   if (existing) throw new AppealError("You already have an open appeal.");
 
-  db.prepare(
-    "INSERT INTO appeals (id, user_id, appeal_type, reason, created_at) VALUES (?, ?, 'platform_block', ?, ?)",
-  ).run(randomUUID(), userId, trimmed, new Date().toISOString());
+  try {
+    db.prepare(
+      "INSERT INTO appeals (id, user_id, appeal_type, reason, created_at) VALUES (?, ?, 'platform_block', ?, ?)",
+    ).run(randomUUID(), userId, trimmed, new Date().toISOString());
+  } catch (error) {
+    if (isOpenAppealUniqueViolation(error)) {
+      throw new AppealError("You already have an open appeal.");
+    }
+    throw error;
+  }
 }
 
 export function listOpenAppeals(limit = 50): AppealSummary[] {
