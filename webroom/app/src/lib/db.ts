@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 
 /** Directory containing schema.sql for database initialization. */
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,8 +55,47 @@ export function reconcileDuplicateOpenAppeals(db: DatabaseSync): void {
   }
 }
 
+/** Upgrade legacy global plugin installs to per-user ownership. */
+function migrateInstalledPluginsIfNeeded(db: DatabaseSync): void {
+  const legacyTable = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'installed_plugins'")
+    .get() as { name: string } | undefined;
+  if (!legacyTable || columnExists(db, "installed_plugins", "user_id")) return;
+
+  const legacyRows = db
+    .prepare("SELECT id, slug, manifest_json, installed_at FROM installed_plugins")
+    .all() as { id: string; slug: string; manifest_json: string; installed_at: string }[];
+  db.exec("ALTER TABLE installed_plugins RENAME TO installed_plugins_legacy");
+  db.exec(
+    `CREATE TABLE installed_plugins (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL,
+      manifest_json TEXT NOT NULL,
+      installed_at TEXT NOT NULL,
+      UNIQUE (user_id, slug)
+    )`,
+  );
+  db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
+  if (legacyRows.length > 0) {
+    const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
+    const insert = db.prepare(
+      `INSERT INTO installed_plugins (id, user_id, slug, manifest_json, installed_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    );
+    for (const user of users) {
+      for (const row of legacyRows) {
+        insert.run(randomUUID(), user.id, row.slug, row.manifest_json, row.installed_at);
+      }
+    }
+  }
+  db.exec("DROP TABLE IF EXISTS installed_plugins_legacy");
+}
+
 /** Apply schema bootstrap and incremental migrations. */
 function migrate(db: DatabaseSync): void {
+  migrateInstalledPluginsIfNeeded(db);
+
   const schemaPath = join(__dirname, "schema.sql");
   const schema = readFileSync(schemaPath, "utf-8");
   db.exec(schema);
@@ -86,20 +126,6 @@ function migrate(db: DatabaseSync): void {
   }
   if (!indexExists(db, "idx_appeals_one_open_per_user")) {
     ensureAppealsUniqueIndex(db);
-  }
-  if (!columnExists(db, "installed_plugins", "user_id")) {
-    db.exec("DROP TABLE IF EXISTS installed_plugins");
-    db.exec(
-      `CREATE TABLE installed_plugins (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        slug TEXT NOT NULL,
-        manifest_json TEXT NOT NULL,
-        installed_at TEXT NOT NULL,
-        UNIQUE (user_id, slug)
-      )`,
-    );
-    db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
   }
 }
 

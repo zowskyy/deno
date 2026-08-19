@@ -15,6 +15,45 @@ export interface FeedItem {
   createdAt: string;
 }
 
+/** Composite cursor matching friend-tier, timestamp, and event id ordering. */
+interface FeedCursor {
+  tier: number;
+  createdAt: string;
+  id: string;
+}
+
+/** Encode a feed pagination cursor. */
+export function encodeFeedCursor(tier: number, createdAt: string, id: string): string {
+  return Buffer.from(JSON.stringify({ t: tier, c: createdAt, i: id }), "utf8").toString("base64url");
+}
+
+/** Build a cursor for the last item on a feed page. */
+export function feedCursorForItem(item: FeedItem, viewerId: string | null): string {
+  const friendIds = viewerId ? listFriends(viewerId).map((f) => f.userId) : [];
+  const tier = friendIds.includes(item.userId) ? 0 : 1;
+  return encodeFeedCursor(tier, item.createdAt, item.id);
+}
+
+/** Decode a feed cursor; supports legacy timestamp-only cursors. */
+function decodeFeedCursor(cursor: string): FeedCursor | null {
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+      t?: number;
+      c?: string;
+      i?: string;
+    };
+    if (typeof parsed.t === "number" && typeof parsed.c === "string" && typeof parsed.i === "string") {
+      return { tier: parsed.t, createdAt: parsed.c, id: parsed.i };
+    }
+  } catch {
+    /* fall through to legacy cursor */
+  }
+  if (cursor.length > 0) {
+    return { tier: 1, createdAt: cursor, id: "" };
+  }
+  return null;
+}
+
 /** Insert a feed event using an existing database connection (for transactions). */
 export function insertFeedEvent(
   db: DatabaseSync,
@@ -62,16 +101,38 @@ export function listFeedItems(
     params.push(...blockedIds);
   }
 
+  const tierExpr =
+    friendIds.length > 0
+      ? `CASE WHEN fe.user_id IN (${friendIds.map(() => "?").join(",")}) THEN 0 ELSE 1 END`
+      : "1";
+
   if (options?.cursor) {
-    sql += ` AND fe.created_at < ?`;
-    params.push(options.cursor);
+    const decoded = decodeFeedCursor(options.cursor);
+    if (decoded) {
+      if (decoded.id) {
+        sql += ` AND (
+          ${tierExpr} > ?
+          OR (
+            ${tierExpr} = ?
+            AND (fe.created_at < ? OR (fe.created_at = ? AND fe.id < ?))
+          )
+        )`;
+        if (friendIds.length > 0) params.push(...friendIds);
+        params.push(decoded.tier);
+        if (friendIds.length > 0) params.push(...friendIds);
+        params.push(decoded.tier, decoded.createdAt, decoded.createdAt, decoded.id);
+      } else {
+        sql += ` AND fe.created_at < ?`;
+        params.push(decoded.createdAt);
+      }
+    }
   }
 
   if (friendIds.length > 0) {
-    sql += ` ORDER BY CASE WHEN fe.user_id IN (${friendIds.map(() => "?").join(",")}) THEN 0 ELSE 1 END, fe.created_at DESC LIMIT ?`;
+    sql += ` ORDER BY ${tierExpr}, fe.created_at DESC, fe.id DESC LIMIT ?`;
     params.push(...friendIds, limit);
   } else {
-    sql += ` ORDER BY fe.created_at DESC LIMIT ?`;
+    sql += ` ORDER BY fe.created_at DESC, fe.id DESC LIMIT ?`;
     params.push(limit);
   }
 

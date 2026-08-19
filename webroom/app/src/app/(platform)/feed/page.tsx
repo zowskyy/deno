@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listFeedItems } from "@/lib/feed";
+import { feedCursorForItem, listFeedItems } from "@/lib/feed";
 import { listRecommendedPages } from "@/lib/recommendations";
 import { getCurrentUser } from "@/lib/session";
 import { FeedLoadMore } from "./FeedLoadMore";
@@ -13,7 +13,7 @@ export default async function FeedPage({
   const { cursor } = await searchParams;
   const items = listFeedItems(user?.id ?? null, { cursor, limit: 20 });
   const recommendations = listRecommendedPages(user?.id ?? null, 8);
-  const nextCursor = items.length > 0 ? items[items.length - 1]!.createdAt : undefined;
+  const nextCursor = items.length > 0 ? feedCursorForItem(items[items.length - 1]!, user?.id ?? null) : undefined;
 
   return (
     <main className="container feed-container">

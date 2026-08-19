@@ -44,4 +44,24 @@ describe("isAllowlistedEmbed", () => {
       }),
     ).toBe(false);
   });
+
+  it("accepts canonical Spotify embed URLs", () => {
+    const embedUrl = "https://open.spotify.com/embed/track/abc123XYZ";
+    expect(isAllowlistedEmbed({ provider: "spotify", embedUrl })).toBe(true);
+    expect(parseAllowlistedEmbed(embedUrl)?.embedUrl).toBe(embedUrl);
+  });
+
+  it("accepts canonical YouTube embed URLs", () => {
+    const embedUrl = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+    expect(isAllowlistedEmbed({ provider: "youtube", embedUrl })).toBe(true);
+  });
+
+  it("rejects non-canonical YouTube watch URLs in stored embeds", () => {
+    expect(
+      isAllowlistedEmbed({
+        provider: "youtube",
+        embedUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      }),
+    ).toBe(false);
+  });
 });

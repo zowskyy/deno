@@ -50,6 +50,41 @@ export function maxUploadRequestBytes(): number {
   return maxUploadBytes("audio") + 256 * 1024;
 }
 
+/** Read a request body up to maxBytes; throws AssetError when exceeded. */
+export async function readBoundedBody(request: Request, maxBytes: number): Promise<Buffer> {
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (contentLength > maxBytes) {
+    throw new AssetError("Upload exceeds maximum request size.");
+  }
+
+  if (!request.body) {
+    const buf = Buffer.from(await request.arrayBuffer());
+    if (buf.length > maxBytes) throw new AssetError("Upload exceeds maximum request size.");
+    return buf;
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) throw new AssetError("Upload exceeds maximum request size.");
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
+/** Parse multipart form data from a bounded request body. */
+export async function parseBoundedFormData(request: Request, maxBytes: number): Promise<FormData> {
+  const contentType = request.headers.get("content-type") ?? "";
+  const body = await readBoundedBody(request, maxBytes);
+  const bytes = Uint8Array.from(body);
+  const blob = new Blob([bytes], { type: contentType });
+  return new Response(blob, { headers: { "content-type": contentType } }).formData();
+}
+
 /** Store an uploaded file and record metadata in the database. */
 export function storeUserAsset(
   userId: string,

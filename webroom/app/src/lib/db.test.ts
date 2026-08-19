@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import { createUser } from "./auth";
 import { ensureAppealsUniqueIndex, getDb, reconcileDuplicateOpenAppeals, resetDbForTests, runMigrations } from "./db";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
@@ -95,5 +96,34 @@ describe("appeals unique index migration", () => {
           .get(userId) as { c: number }
       ).c,
     ).toBe(1);
+  });
+});
+
+describe("installed_plugins migration", () => {
+  it("preserves legacy global installs for each existing user", () => {
+    resetDbForTests();
+    const db = getDb();
+    db.exec("DROP TABLE IF EXISTS installed_plugins");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL
+      )`,
+    );
+    createUser("legacya", "correct-horse-battery");
+    createUser("legacyb", "correct-horse-battery");
+    db.prepare(
+      "INSERT INTO installed_plugins (id, slug, manifest_json, installed_at) VALUES (?, ?, ?, ?)",
+    ).run("legacy-plugin", "quote-card", '{"name":"Quote"}', "2025-01-01T00:00:00.000Z");
+
+    runMigrations(db);
+
+    expect(columnExists(db, "installed_plugins", "user_id")).toBe(true);
+    const count = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
+    expect(count.c).toBe(2);
+    const slugs = db.prepare("SELECT DISTINCT slug FROM installed_plugins").all() as { slug: string }[];
+    expect(slugs).toEqual([{ slug: "quote-card" }]);
   });
 });

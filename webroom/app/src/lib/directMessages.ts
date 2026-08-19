@@ -53,8 +53,44 @@ export async function sendDirectMessage(
     "INSERT INTO direct_messages (id, sender_id, recipient_id, body, created_at) VALUES (?, ?, ?, ?, ?)",
   ).run(id, senderId, recipientId, trimmed, now);
 
-  const [msg] = listDirectMessagesForUser(senderId, { withUserId: recipientId, limit: 1 });
-  return msg!;
+  return getDirectMessageById(id);
+}
+
+/** Load a direct message by primary key. */
+function getDirectMessageById(id: string): DirectMessage {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT dm.id, dm.sender_id, dm.recipient_id, dm.body, dm.created_at, dm.read_at,
+              s.handle as sender_handle, r.handle as recipient_handle
+       FROM direct_messages dm
+       JOIN users s ON s.id = dm.sender_id
+       JOIN users r ON r.id = dm.recipient_id
+       WHERE dm.id = ?`,
+    )
+    .get(id) as
+    | {
+        id: string;
+        sender_id: string;
+        recipient_id: string;
+        body: string;
+        created_at: string;
+        read_at: string | null;
+        sender_handle: string;
+        recipient_handle: string;
+      }
+    | undefined;
+  if (!row) throw new DirectMessageError("Message not found.");
+  return {
+    id: row.id,
+    senderId: row.sender_id,
+    senderHandle: row.sender_handle,
+    recipientId: row.recipient_id,
+    recipientHandle: row.recipient_handle,
+    body: row.body,
+    createdAt: row.created_at,
+    readAt: row.read_at,
+  };
 }
 
 /** List messages for a user, optionally filtered to one conversation. */

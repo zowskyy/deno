@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   canViewPage,
+  CURRENT_SCHEMA_VERSION,
   defaultPageDocument,
   getPageDocument,
   listVersions,
   migrateDocument,
-  parsePageDocument,
   PageDocumentValidationError,
+  parsePageDocument,
   restoreVersion,
   savePageDocument,
   setPublished,
   setVisibility,
   VersionNotFoundError,
-  CURRENT_SCHEMA_VERSION,
 } from "./pageDocument";
 import { createUser } from "./auth";
-import { resetDbForTests } from "./db";
+import { getDb, resetDbForTests } from "./db";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
 
@@ -275,5 +275,31 @@ describe("canViewPage", () => {
     (stored as { visibility: string }).visibility = "secret";
 
     expect(canViewPage(stored, owner.id, null)).toBe(false);
+  });
+});
+
+describe("savePageDocument persistence", () => {
+  it("preserves existing visibility and publish state on update", () => {
+    const user = createUser("privateuser", "correct-horse-battery");
+    savePageDocument(user.id, defaultPageDocument("Private"));
+    setVisibility(user.id, "private");
+    setPublished(user.id, false);
+
+    savePageDocument(user.id, defaultPageDocument("Private Updated"));
+
+    const stored = getPageDocument(user.id)!;
+    expect(stored.visibility).toBe("private");
+    expect(stored.isPublished).toBe(false);
+  });
+
+  it("creates page and tags together on first save", () => {
+    const user = createUser("taguser", "correct-horse-battery");
+    const doc = defaultPageDocument("Tag User");
+    doc.tags = ["art", "music"];
+    savePageDocument(user.id, doc);
+    const tags = getDb()
+      .prepare("SELECT tag FROM page_tags WHERE user_id = ? ORDER BY tag")
+      .all(user.id) as { tag: string }[];
+    expect(tags.map((t) => t.tag)).toEqual(["art", "music"]);
   });
 });

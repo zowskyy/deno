@@ -10,6 +10,8 @@ export interface ParsedEmbed {
 
 const SPOTIFY_TRACK = /open\.spotify\.com\/track\/([a-zA-Z0-9]+)/;
 const SPOTIFY_ALBUM = /open\.spotify\.com\/album\/([a-zA-Z0-9]+)/;
+const SPOTIFY_EMBED_TRACK = /open\.spotify\.com\/embed\/track\/([a-zA-Z0-9]+)/;
+const SPOTIFY_EMBED_ALBUM = /open\.spotify\.com\/embed\/album\/([a-zA-Z0-9]+)/;
 const YOUTUBE_WATCH = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const YOUTUBE_EMBED = /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/;
 
@@ -25,6 +27,21 @@ export function parseAllowlistedEmbed(rawUrl: string): ParsedEmbed | null {
 
   const host = url.hostname.replace(/^www\./, "");
   const href = url.href;
+
+  const spotifyEmbedTrack = href.match(SPOTIFY_EMBED_TRACK);
+  if (spotifyEmbedTrack && host === "open.spotify.com") {
+    return {
+      provider: "spotify",
+      embedUrl: `https://open.spotify.com/embed/track/${spotifyEmbedTrack[1]}`,
+    };
+  }
+  const spotifyEmbedAlbum = href.match(SPOTIFY_EMBED_ALBUM);
+  if (spotifyEmbedAlbum && host === "open.spotify.com") {
+    return {
+      provider: "spotify",
+      embedUrl: `https://open.spotify.com/embed/album/${spotifyEmbedAlbum[1]}`,
+    };
+  }
 
   const spotifyTrack = href.match(SPOTIFY_TRACK);
   if (spotifyTrack && host === "open.spotify.com") {

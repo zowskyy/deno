@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import { insertFeedEvent } from "./feed";
 import {
   CURRENT_SCHEMA_VERSION,
@@ -158,6 +159,19 @@ export function getPageDocument(userId: string): StoredPage | null {
 /** Maximum number of page versions retained per user. */
 const MAX_VERSIONS_KEPT = 50;
 
+/** Run a write inside BEGIN IMMEDIATE / COMMIT with rollback on failure. */
+function withTransaction<T>(db: DatabaseSync, fn: () => T): T {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = fn();
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 /** Validate, persist, and version a user's published page document. */
 export function savePageDocument(userId: string, input: unknown): PageDocument {
   const document = parsePageDocument(input);
@@ -169,8 +183,7 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
     .get(userId) as { document_json: string; is_published: number } | undefined;
 
   if (existing) {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    withTransaction(db, () => {
       db.prepare(
         "INSERT INTO page_document_versions (id, user_id, document_json, created_at) VALUES (?, ?, ?, ?)",
       ).run(randomUUID(), userId, existing.document_json, now);
@@ -181,7 +194,7 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
         userId,
       );
 
-      syncPageTags(userId, document.tags);
+      syncPageTags(db, userId, document.tags);
 
       if (existing.is_published) {
         insertFeedEvent(db, userId, "page_updated", { at: now }, now);
@@ -193,21 +206,15 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
            SELECT id FROM page_document_versions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
          )`,
       ).run(userId, userId, MAX_VERSIONS_KEPT);
-
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
+    });
   } else {
-    db.prepare(
-      `INSERT INTO page_documents (user_id, document_json, is_published, visibility, updated_at)
-       VALUES (?, ?, 0, 'private', ?)`,
-    ).run(userId, JSON.stringify(document), now);
-  }
-
-  if (!existing) {
-    syncPageTags(userId, document.tags);
+    withTransaction(db, () => {
+      db.prepare(
+        `INSERT INTO page_documents (user_id, document_json, is_published, visibility, updated_at)
+         VALUES (?, ?, 0, 'private', ?)`,
+      ).run(userId, JSON.stringify(document), now);
+      syncPageTags(db, userId, document.tags);
+    });
   }
 
   return document;
@@ -269,12 +276,15 @@ export function getMiniPage(document: PageDocument, slug: string) {
 }
 
 /** Replace a user's page tags with the current document tag set. */
-function syncPageTags(userId: string, tags: string[]): void {
-  const db = getDb();
+function syncPageTags(db: DatabaseSync, userId: string, tags: string[]): void {
   db.prepare("DELETE FROM page_tags WHERE user_id = ?").run(userId);
   const insert = db.prepare("INSERT INTO page_tags (user_id, tag) VALUES (?, ?)");
+  const seen = new Set<string>();
   for (const tag of tags) {
-    insert.run(userId, tag.toLowerCase());
+    const normalized = tag.toLowerCase();
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    insert.run(userId, normalized);
   }
 }
 
@@ -308,8 +318,7 @@ export function setPublished(userId: string, published: boolean): void {
     | undefined;
   if (!existing) throw new Error("Cannot publish before a page document exists — save one first.");
   const now = new Date().toISOString();
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  withTransaction(db, () => {
     db.prepare("UPDATE page_documents SET is_published = ?, updated_at = ? WHERE user_id = ?").run(
       published ? 1 : 0,
       now,
@@ -318,11 +327,7 @@ export function setPublished(userId: string, published: boolean): void {
     if (published && !existing.is_published) {
       insertFeedEvent(db, userId, "page_published", { at: now }, now);
     }
-    db.exec("COMMIT");
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
 
 /** Set who can access a published page. */

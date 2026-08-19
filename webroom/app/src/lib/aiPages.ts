@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { defaultPageDocument, parsePageDocument, type PageDocument } from "./pageDocument";
+import { CURRENT_SCHEMA_VERSION } from "./pageDocumentTypes";
 import { applyCreativeSpark, type CreativeSparkId } from "./creativeSparks";
 
 /** Error thrown when AI page generation fails. */
@@ -105,10 +106,28 @@ async function generateWithLlm(apiKey: string, options: AiGenerateOptions): Prom
 
     const jsonText = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
-    return parsePageDocument({ ...base, ...parsed, version: 3 });
+    return mergeAiPageResponse(base, parsed);
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Merge LLM output into a base document, preserving protected fields. */
+export function mergeAiPageResponse(base: PageDocument, parsed: Record<string, unknown>): PageDocument {
+  const identity = parsed.identity;
+  const mergedIdentity =
+    identity && typeof identity === "object" && !Array.isArray(identity)
+      ? { ...base.identity, ...(identity as Partial<PageDocument["identity"]>) }
+      : base.identity;
+
+  return parsePageDocument({
+    ...base,
+    version: CURRENT_SCHEMA_VERSION,
+    identity: mergedIdentity,
+    now: typeof parsed.now === "string" ? parsed.now : base.now,
+    tags: Array.isArray(parsed.tags) ? parsed.tags : base.tags,
+    pageParts: Array.isArray(parsed.pageParts) ? parsed.pageParts : base.pageParts,
+  });
 }
 
 /** Derive a short bio from the user's prompt. */

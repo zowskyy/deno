@@ -8,7 +8,9 @@ import {
   AssetError,
   getUserAsset,
   maxUploadBytes,
+  maxUploadRequestBytes,
   readAssetFile,
+  readBoundedBody,
   storeUserAsset,
   userOwnsAsset,
 } from "./assets";
@@ -48,6 +50,27 @@ describe("storeUserAsset", () => {
     const user = createUser("pixelpunk3", "correct-horse-battery");
     const big = Buffer.alloc(maxUploadBytes("image") + 1);
     expect(() => storeUserAsset(user.id, big, "image/png", "big.png")).toThrow(AssetError);
+  });
+});
+
+describe("readBoundedBody", () => {
+  it("rejects bodies larger than the configured limit", async () => {
+    const request = new Request("http://localhost/upload", {
+      method: "POST",
+      body: Buffer.alloc(2000),
+    });
+    await expect(readBoundedBody(request, 1500)).rejects.toThrow(AssetError);
+  });
+
+  it("accepts bodies within the configured limit", async () => {
+    const payload = new Uint8Array(512);
+    const request = new Request("http://localhost/upload", {
+      method: "POST",
+      body: payload,
+      headers: { "content-length": String(payload.length) },
+    });
+    const result = await readBoundedBody(request, maxUploadRequestBytes());
+    expect(result.length).toBe(512);
   });
 });
 
