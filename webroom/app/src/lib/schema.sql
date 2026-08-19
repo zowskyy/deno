@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   handle_lower TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  is_blocked_platform INTEGER NOT NULL DEFAULT 0
+  is_blocked_platform INTEGER NOT NULL DEFAULT 0,
+  is_moderator INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -21,16 +22,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
--- One row per user: their current published (or draft) page document, plus
--- version history for restore. `document_json` always validates against
--- the Zod schema in pageDocument.ts before it's written here — never an
--- unvalidated write.
 CREATE TABLE IF NOT EXISTS page_documents (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   document_json TEXT NOT NULL,
+  draft_document_json TEXT,
   is_published INTEGER NOT NULL DEFAULT 0,
   visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'unlisted', 'public')),
   hidden_from_discovery INTEGER NOT NULL DEFAULT 0,
+  guestbook_disabled INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
 
@@ -43,11 +42,6 @@ CREATE TABLE IF NOT EXISTS page_document_versions (
 
 CREATE INDEX IF NOT EXISTS idx_versions_user ON page_document_versions(user_id, created_at);
 
--- Friend links are mutual-accept: a row starts as 'pending' (requester ->
--- addressee), becomes 'accepted' when the addressee accepts, and is
--- deleted (not soft-deleted) on decline/unfriend so it can be re-requested
--- later. A block is a separate table checked before any request can be
--- created, and survives independently of friend-row deletion.
 CREATE TABLE IF NOT EXISTS friend_links (
   id TEXT PRIMARY KEY,
   requester_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -68,16 +62,86 @@ CREATE TABLE IF NOT EXISTS blocks (
   PRIMARY KEY (blocker_id, blocked_id)
 );
 
--- Full moderator review tooling (queue UI, appeals, logs) is Phase 3
--- scope — but the Report control in the top bar is present from Phase 1
--- per the plan ("a theme cannot hide these controls"), so reports must
--- genuinely land somewhere real, not 404 or vanish, even before that
--- tooling exists.
 CREATE TABLE IF NOT EXISTS reports (
   id TEXT PRIMARY KEY,
   reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   reported_handle TEXT NOT NULL,
   reason TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewed', 'dismissed'))
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewed', 'dismissed')),
+  moderator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  moderator_note TEXT,
+  reviewed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
+
+CREATE TABLE IF NOT EXISTS moderator_logs (
+  id TEXT PRIMARY KEY,
+  moderator_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  target_handle TEXT,
+  detail TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS guestbook_entries (
+  id TEXT PRIMARY KEY,
+  page_owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  author_handle TEXT,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at TEXT NOT NULL,
+  reviewed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_guestbook_owner ON guestbook_entries(page_owner_id, status, created_at);
+
+CREATE TABLE IF NOT EXISTS page_tags (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (user_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_page_tags_tag ON page_tags(tag);
+
+CREATE TABLE IF NOT EXISTS web_rings (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS web_ring_members (
+  ring_id TEXT NOT NULL REFERENCES web_rings(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  joined_at TEXT NOT NULL,
+  PRIMARY KEY (ring_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ring_members_user ON web_ring_members(user_id);
+
+CREATE TABLE IF NOT EXISTS collections (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS collection_pages (
+  collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  added_at TEXT NOT NULL,
+  PRIMARY KEY (collection_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  window_start TEXT NOT NULL
 );
