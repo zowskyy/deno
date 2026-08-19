@@ -38,4 +38,22 @@ describe("checkRateLimit", () => {
       expect((e as RateLimitError).retryAfterSeconds).toBeGreaterThan(0);
     }
   });
+
+  it("never allows more than maxCount successes under concurrent requests", async () => {
+    const key = "login:concurrent-test";
+    const maxCount = 5;
+    const attempts = 20;
+
+    const results = await Promise.allSettled(
+      Array.from({ length: attempts }, () => Promise.resolve().then(() => checkRateLimit(key, maxCount))),
+    );
+
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const rejected = results.filter(
+      (r) => r.status === "rejected" && r.reason instanceof RateLimitError,
+    ).length;
+
+    expect(succeeded).toBe(maxCount);
+    expect(rejected).toBe(attempts - maxCount);
+  });
 });
