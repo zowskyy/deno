@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { validateProfileCustomCss } from "@/lib/cssScope";
+import { validateDocumentCss } from "@/lib/studioValidation";
 import { getPageDocument, savePageDocument } from "@/lib/pageDocument";
 import {
   forkTheme,
@@ -120,11 +120,8 @@ export async function publishThemeAction(
   const stored = getPageDocument(viewer.id);
   if (!stored) return { error: "Save a page first — head to Studio to get started." };
 
-  const theme = stored.document.theme;
-  if (theme.customCssEnabled && theme.customCss.trim()) {
-    const cssCheck = validateProfileCustomCss(theme.customCss, viewer.handle);
-    if (!cssCheck.ok) return { error: `Custom CSS blocked: ${cssCheck.error}` };
-  }
+  const cssError = validateDocumentCss(stored.document, viewer.handle);
+  if (cssError) return { error: cssError };
 
   try {
     const key = await rateLimitActorKey("theme-publish", viewer.id);

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { validateProfileCustomCss } from "@/lib/cssScope";
+import { validateDocumentCss } from "@/lib/studioValidation";
 import {
   discardDraft,
   exportPageData,
@@ -35,12 +35,6 @@ export interface StudioActionResult {
 function revalidateOwnerPaths(handle: string) {
   revalidatePath("/studio");
   revalidatePath(`/@${handle}`);
-}
-
-function validateDocumentCss(document: PageDocument, handle: string): string | null {
-  if (!document.theme.customCssEnabled || !document.theme.customCss.trim()) return null;
-  const result = validateProfileCustomCss(document.theme.customCss, handle);
-  return result.ok ? null : `Custom CSS blocked: ${result.error}`;
 }
 
 export async function saveDraftAction(documentJson: string): Promise<StudioActionResult> {

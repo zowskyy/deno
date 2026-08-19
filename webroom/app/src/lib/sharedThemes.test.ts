@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ensureSeedSharedThemes, listSharedThemes, publishTheme } from "./sharedThemes";
+import {
+  ensureSeedSharedThemes,
+  listOpenThemeReports,
+  listSharedThemes,
+  publishTheme,
+  reportTheme,
+  reviewThemeReport,
+} from "./sharedThemes";
 import { createUser } from "./auth";
 import { defaultPageDocument, savePageDocument } from "./pageDocument";
 import { resetDbForTests } from "./db";
@@ -30,5 +37,18 @@ describe("sharedThemes", () => {
     const first = listSharedThemes().length;
     ensureSeedSharedThemes();
     expect(listSharedThemes().length).toBe(first);
+  });
+
+  it("reviewThemeReport returns false for already-reviewed reports", () => {
+    ensureSeedSharedThemes();
+    const reporter = createUser("voidarcade", "correct-horse-battery");
+    const mod = createUser("moduser", "correct-horse-battery");
+    const [theme] = listSharedThemes();
+
+    reportTheme(theme!.id, reporter.id, "inappropriate");
+    const [report] = listOpenThemeReports();
+    expect(reviewThemeReport(report!.id, mod.id, "reviewed", "first")).toBe(true);
+    expect(reviewThemeReport(report!.id, mod.id, "dismissed", "stale")).toBe(false);
+    expect(listOpenThemeReports()).toHaveLength(0);
   });
 });

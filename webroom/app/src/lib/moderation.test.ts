@@ -100,6 +100,19 @@ describe("report queue", () => {
     const logs = listModeratorLogs();
     expect(logs.some((l) => l.action === "report_reviewed" && l.targetHandle === "neonorchard")).toBe(true);
   });
+
+  it("reviewReport returns false for already-reviewed reports", () => {
+    const mod = createUser("moduser", "correct-horse-battery");
+    const reporter = createUser("voidarcade", "correct-horse-battery");
+    createUser("neonorchard", "correct-horse-battery");
+    ensureModeratorSeed();
+    fileReport(reporter.id, "neonorchard", "spam");
+
+    const [report] = listOpenReports();
+    expect(reviewReport(report!.id, mod.id, "reviewed", "first")).toBe(true);
+    expect(reviewReport(report!.id, mod.id, "dismissed", "stale")).toBe(false);
+    expect(listModeratorLogs().filter((l) => l.action === "report_reviewed")).toHaveLength(1);
+  });
 });
 
 describe("platform block", () => {

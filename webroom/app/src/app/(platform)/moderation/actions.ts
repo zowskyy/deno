@@ -24,22 +24,25 @@ export async function moderateReportAction(reportId: string, formData: FormData)
   const intent = String(formData.get("intent") ?? "reviewed");
   const note = String(formData.get("note") ?? "");
   const status = intent === "dismissed" ? "dismissed" : "reviewed";
-  reviewReport(reportId, moderator.id, status, note);
-  revalidatePath("/moderation");
+  if (reviewReport(reportId, moderator.id, status, note)) {
+    revalidatePath("/moderation");
+  }
 }
 
 export async function reviewReportAction(reportId: string, formData: FormData): Promise<void> {
   const moderator = await requireModerator();
   const note = String(formData.get("note") ?? "");
-  reviewReport(reportId, moderator.id, "reviewed", note);
-  revalidatePath("/moderation");
+  if (reviewReport(reportId, moderator.id, "reviewed", note)) {
+    revalidatePath("/moderation");
+  }
 }
 
 export async function dismissReportAction(reportId: string, formData: FormData): Promise<void> {
   const moderator = await requireModerator();
   const note = String(formData.get("note") ?? "");
-  reviewReport(reportId, moderator.id, "dismissed", note);
-  revalidatePath("/moderation");
+  if (reviewReport(reportId, moderator.id, "dismissed", note)) {
+    revalidatePath("/moderation");
+  }
 }
 
 export async function platformBlockAction(handle: string): Promise<void> {
