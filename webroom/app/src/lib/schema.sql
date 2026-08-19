@@ -256,8 +256,12 @@ CREATE TABLE IF NOT EXISTS marketplace_plugins (
 
 CREATE TABLE IF NOT EXISTS installed_plugins (
   id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
   manifest_json TEXT NOT NULL,
-  installed_at TEXT NOT NULL
+  installed_at TEXT NOT NULL,
+  UNIQUE (user_id, slug)
 );
+
+CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at);
 

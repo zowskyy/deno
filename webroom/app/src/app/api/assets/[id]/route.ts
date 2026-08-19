@@ -13,7 +13,7 @@ export async function GET(
   const file = readAssetFile(id);
   if (!file) return new NextResponse("Not found", { status: 404 });
 
-  return new NextResponse(file.buffer, {
+  return new NextResponse(new Uint8Array(file.buffer), {
     headers: {
       "Content-Type": file.mimeType,
       "Cache-Control": "public, max-age=31536000, immutable",

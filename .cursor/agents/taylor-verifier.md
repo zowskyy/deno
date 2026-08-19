@@ -41,9 +41,9 @@ All three must succeed. Lint warnings are acceptable only if pre-existing and do
 # Docstring coverage in lib (local scan)
 node -e "
 const fs=require('fs'),path=require('path');
-function walk(d,f=[]){for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name);if(e.isDirectory()&&e.name!=='node_modules')walk(p,f);else if(/\\.ts$/.test(e.name)&&!\\.test\\./.test(e.name))f.push(p)}return f}
-function hasDoc(lines,i){let j=i-1;while(j>=0&&lines[j].trim()==='')j--;for(let k=j;k>=Math.max(0,j-15);k--){if(lines[k].trim().startsWith('/**'))return true;if(lines[k].trim().endsWith('*/'))return true;if(/^(export )?(async )?function |^export (const|class)/.test(lines[k]))break}return false}
-let t=0,m=0;for(const file of walk('src/lib')){const lines=fs.readFileSync(file,'utf8').split('\\n');for(let i=0;i<lines.length;i++){if(/^(export )?(async )?function |^export const \\w+ *=/.test(lines[i])){t++;if(!hasDoc(lines,i))m++}}}
+function walk(d,f=[]){for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name);if(e.isDirectory()&&e.name!=='node_modules')walk(p,f);else if(/\\.ts$/.test(e.name)&&!/\\.test\\./.test(e.name))f.push(p)}return f}
+function hasDoc(lines,i){let j=i-1;while(j>=0&&lines[j].trim()==='')j--;for(let k=j;k>=Math.max(0,j-15);k--){if(lines[k].trim().startsWith('/**'))return true;if(lines[k].trim().endsWith('*/'))return true;if(/^(export )?(async )?(function|class|interface|type)\\b|^export const\\b/.test(lines[k]))break}return false}
+let t=0,m=0;for(const file of walk('src/lib')){const lines=fs.readFileSync(file,'utf8').split('\\n');for(let i=0;i<lines.length;i++){if(/^(export )?(async )?(function|class|interface|type)\\b|^export const\\b/.test(lines[i])){t++;if(!hasDoc(lines,i))m++}}}
 console.log('Lib docstring coverage:', ((t-m)/t*100).toFixed(2)+'%', '('+(t-m)+'/'+t+')');
 "
 ```

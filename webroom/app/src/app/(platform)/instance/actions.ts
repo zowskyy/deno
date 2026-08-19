@@ -4,10 +4,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { isModerator } from "@/lib/moderation";
-import { configureInstanceUrl, getInstanceUrl } from "@/lib/instance";
-import { followRemoteProfile, listFederationFollows, FederationError } from "@/lib/federation";
+import { configureInstanceUrl } from "@/lib/instance";
+import { followRemoteProfile, FederationError } from "@/lib/federation";
 
-export async function saveInstanceUrlAction(formData: FormData): Promise<{ error?: string }> {
+export interface InstanceActionState {
+  error?: string;
+}
+
+export async function saveInstanceUrlAction(
+  _prev: InstanceActionState,
+  formData: FormData,
+): Promise<InstanceActionState> {
   const user = await getCurrentUser();
   if (!user || !isModerator(user.id)) return { error: "Moderators only." };
 
@@ -20,7 +27,10 @@ export async function saveInstanceUrlAction(formData: FormData): Promise<{ error
   }
 }
 
-export async function followRemoteAction(formData: FormData): Promise<{ error?: string }> {
+export async function followRemoteAction(
+  _prev: InstanceActionState,
+  formData: FormData,
+): Promise<InstanceActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -33,5 +43,3 @@ export async function followRemoteAction(formData: FormData): Promise<{ error?: 
     throw error;
   }
 }
-
-export { getInstanceUrl, listFederationFollows };

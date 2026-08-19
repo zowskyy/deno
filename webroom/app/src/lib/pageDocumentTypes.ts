@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAllowlistedEmbed } from "./embeds";
 
 /** Current page document schema version. */
 export const CURRENT_SCHEMA_VERSION = 3;
@@ -86,10 +87,14 @@ const IdentitySchema = z.object({
 });
 
 /** Allowlisted third-party embed in a playlist track. */
-const EmbedSchema = z.object({
-  provider: z.enum(["spotify", "youtube"]),
-  embedUrl: z.string().url(),
-});
+const EmbedSchema = z
+  .object({
+    provider: z.enum(["spotify", "youtube"]),
+    embedUrl: z.string().url(),
+  })
+  .refine((embed) => isAllowlistedEmbed(embed), {
+    message: "embed URL must be an allowlisted Spotify or YouTube embed",
+  });
 
 /** Image entry in the page gallery module. */
 const GalleryItemSchema = z

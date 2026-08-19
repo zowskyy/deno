@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { findUserByHandle } from "@/lib/auth";
+import { listConversations, listDirectMessagesForUser } from "@/lib/directMessages";
 import { getCurrentUser } from "@/lib/session";
-import { listConversations, listDirectMessagesForUser, markReadAction, sendMessageAction } from "./actions";
+import { markReadAction } from "./actions";
+import { MessagesComposeForm } from "./MessagesComposeForm";
 
 export default async function MessagesPage({
   searchParams,
@@ -69,7 +71,10 @@ export default async function MessagesPage({
                     >
                       <p className="messages-msg-body">{msg.body}</p>
                       <time className="mono messages-msg-time" dateTime={msg.createdAt}>
-                        {new Date(msg.createdAt).toLocaleString()}
+                        {new Date(msg.createdAt).toLocaleString(undefined, {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
                       </time>
                     </li>
                   ))}
@@ -80,29 +85,7 @@ export default async function MessagesPage({
 
           <div className="messages-compose profile-panel">
             <h2 className="part-label">New message</h2>
-            <form action={sendMessageAction} className="messages-form">
-              <label htmlFor="dm-handle">To</label>
-              <input
-                id="dm-handle"
-                name="handle"
-                type="text"
-                required
-                placeholder="handle"
-                defaultValue={withHandle ?? ""}
-              />
-              <label htmlFor="dm-body">Message</label>
-              <textarea
-                id="dm-body"
-                name="body"
-                required
-                rows={4}
-                maxLength={2000}
-                placeholder="Say something…"
-              />
-              <button type="submit" className="btn-primary">
-                Send
-              </button>
-            </form>
+            <MessagesComposeForm defaultHandle={withHandle} />
           </div>
         </section>
       </div>

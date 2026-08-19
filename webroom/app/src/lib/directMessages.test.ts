@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createUser } from "./auth";
 import { resetDbForTests } from "./db";
-import { blockUser, sendDirectMessage, DirectMessageError, listConversations, listDirectMessagesForUser } from "./directMessages";
+import { sendDirectMessage, DirectMessageError, listConversations, listDirectMessagesForUser } from "./directMessages";
+import { blockUser } from "./friends";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
 

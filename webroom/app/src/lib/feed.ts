@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import { getDb } from "./db";
-import { listFriends } from "./friends";
+import { listBlockRelatedUserIds, listFriends } from "./friends";
 import { parseDocMeta } from "./discovery";
 
 /** Activity feed item for the home feed. */
@@ -14,16 +15,26 @@ export interface FeedItem {
   createdAt: string;
 }
 
+/** Insert a feed event using an existing database connection (for transactions). */
+export function insertFeedEvent(
+  db: DatabaseSync,
+  userId: string,
+  eventType: FeedItem["eventType"],
+  payload: Record<string, unknown>,
+  createdAt: string,
+): void {
+  db.prepare(
+    "INSERT INTO feed_events (id, user_id, event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run(randomUUID(), userId, eventType, JSON.stringify(payload), createdAt);
+}
+
 /** Record a feed event when a user publishes or updates a public page. */
 export function recordFeedEvent(
   userId: string,
   eventType: FeedItem["eventType"],
   payload: Record<string, unknown>,
 ): void {
-  const db = getDb();
-  db.prepare(
-    "INSERT INTO feed_events (id, user_id, event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",
-  ).run(randomUUID(), userId, eventType, JSON.stringify(payload), new Date().toISOString());
+  insertFeedEvent(getDb(), userId, eventType, payload, new Date().toISOString());
 }
 
 /** Paginated activity feed — friends first, then public updates. No view tracking. */
@@ -34,10 +45,8 @@ export function listFeedItems(
   const db = getDb();
   const limit = Math.min(options?.limit ?? 30, 50);
 
-  let friendIds: string[] = [];
-  if (viewerId) {
-    friendIds = listFriends(viewerId).map((f) => f.userId);
-  }
+  const friendIds = viewerId ? listFriends(viewerId).map((f) => f.userId) : [];
+  const blockedIds = viewerId ? listBlockRelatedUserIds(viewerId) : [];
 
   let sql = `
     SELECT fe.id, fe.user_id, fe.event_type, fe.payload_json, fe.created_at, u.handle, pd.document_json
@@ -48,12 +57,23 @@ export function listFeedItems(
       AND u.is_blocked_platform = 0 AND pd.hidden_from_discovery = 0`;
   const params: (string | number)[] = [];
 
+  if (blockedIds.length > 0) {
+    sql += ` AND fe.user_id NOT IN (${blockedIds.map(() => "?").join(",")})`;
+    params.push(...blockedIds);
+  }
+
   if (options?.cursor) {
     sql += ` AND fe.created_at < ?`;
     params.push(options.cursor);
   }
-  sql += ` ORDER BY fe.created_at DESC LIMIT ?`;
-  params.push(limit * 3);
+
+  if (friendIds.length > 0) {
+    sql += ` ORDER BY CASE WHEN fe.user_id IN (${friendIds.map(() => "?").join(",")}) THEN 0 ELSE 1 END, fe.created_at DESC LIMIT ?`;
+    params.push(...friendIds, limit);
+  } else {
+    sql += ` ORDER BY fe.created_at DESC LIMIT ?`;
+    params.push(limit);
+  }
 
   const rows = db.prepare(sql).all(...params) as {
     id: string;
@@ -65,10 +85,9 @@ export function listFeedItems(
     document_json: string;
   }[];
 
-  const items: FeedItem[] = [];
-  for (const row of rows) {
+  return rows.map((row) => {
     const meta = parseDocMeta(row.document_json);
-    items.push({
+    return {
       id: row.id,
       userId: row.user_id,
       handle: row.handle,
@@ -76,20 +95,8 @@ export function listFeedItems(
       eventType: row.event_type as FeedItem["eventType"],
       summary: summarizeEvent(row.event_type, meta.displayName),
       createdAt: row.created_at,
-    });
-    if (items.length >= limit) break;
-  }
-
-  if (friendIds.length > 0) {
-    items.sort((a, b) => {
-      const aFriend = friendIds.includes(a.userId) ? 1 : 0;
-      const bFriend = friendIds.includes(b.userId) ? 1 : 0;
-      if (aFriend !== bFriend) return bFriend - aFriend;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  }
-
-  return items;
+    };
+  });
 }
 
 /** Build a short human-readable feed summary. */

@@ -25,6 +25,19 @@ export function hasBlockRelationship(userIdA: string, userIdB: string): boolean 
   return isBlocked(getDb(), userIdA, userIdB);
 }
 
+/** List user ids involved in any block relationship with the viewer. */
+export function listBlockRelatedUserIds(userId: string): string[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT blocker_id, blocked_id FROM blocks WHERE blocker_id = ? OR blocked_id = ?")
+    .all(userId, userId) as { blocker_id: string; blocked_id: string }[];
+  const related = new Set<string>();
+  for (const row of rows) {
+    related.add(row.blocker_id === userId ? row.blocked_id : row.blocker_id);
+  }
+  return [...related];
+}
+
 /** Send a friend request, auto-accepting if the other user already requested. */
 export function sendFriendRequest(requesterId: string, addresseeId: string): void {
   if (requesterId === addresseeId) {

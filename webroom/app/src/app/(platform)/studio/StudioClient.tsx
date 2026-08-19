@@ -1705,9 +1705,6 @@ function ContentTab({
                           data: { ...plugin.manifest.defaultData },
                         },
                       ],
-                      pageParts: doc.pageParts.includes("identity")
-                        ? doc.pageParts
-                        : doc.pageParts,
                     })
                   }
                 >

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getInstanceUrl } from "@/lib/instance";
+import { listFederationFollows } from "@/lib/federation";
 import { getCurrentUser } from "@/lib/session";
 import { isModerator } from "@/lib/moderation";
-import { followRemoteAction, getInstanceUrl, listFederationFollows, saveInstanceUrlAction } from "./actions";
+import { FollowRemoteForm, InstanceUrlForm } from "./InstanceForms";
 
 export default async function InstancePage() {
   const user = await getCurrentUser();
@@ -29,32 +31,12 @@ export default async function InstancePage() {
           Your public profile exports at{" "}
           <code>{instanceUrl}/api/federation/profile/{user.handle}</code>
         </p>
-        {moderator && (
-          <form action={saveInstanceUrlAction} className="instance-form">
-            <label htmlFor="instance-url">Public instance URL</label>
-            <input id="instance-url" name="instanceUrl" type="url" defaultValue={instanceUrl} />
-            <button type="submit" className="btn-primary">
-              Save
-            </button>
-          </form>
-        )}
+        {moderator && <InstanceUrlForm defaultUrl={instanceUrl} />}
       </section>
 
       <section className="profile-panel">
         <h2 className="part-label">Follow a remote profile</h2>
-        <form action={followRemoteAction} className="instance-form">
-          <label htmlFor="profile-url">Profile URL on another instance</label>
-          <input
-            id="profile-url"
-            name="profileUrl"
-            type="url"
-            placeholder="https://other.example/api/federation/profile/handle"
-            required
-          />
-          <button type="submit" className="btn-secondary">
-            Follow
-          </button>
-        </form>
+        <FollowRemoteForm />
         {follows.length > 0 && (
           <ul className="federation-follows">
             {follows.map((f) => (

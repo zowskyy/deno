@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAllowlistedEmbedUrl, parseAllowlistedEmbed } from "./embeds";
+import { isAllowlistedEmbedUrl, isAllowlistedEmbed, parseAllowlistedEmbed } from "./embeds";
 
 describe("parseAllowlistedEmbed", () => {
   it("parses Spotify track URLs", () => {
@@ -32,5 +32,16 @@ describe("parseAllowlistedEmbed", () => {
 describe("isAllowlistedEmbedUrl", () => {
   it("returns true for allowlisted providers", () => {
     expect(isAllowlistedEmbedUrl("https://youtu.be/dQw4w9WgXcQ")).toBe(true);
+  });
+});
+
+describe("isAllowlistedEmbed", () => {
+  it("rejects mismatched provider URLs", () => {
+    expect(
+      isAllowlistedEmbed({
+        provider: "spotify",
+        embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      }),
+    ).toBe(false);
   });
 });

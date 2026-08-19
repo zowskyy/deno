@@ -4,15 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { findUserByHandle } from "@/lib/auth";
-import {
-  DirectMessageError,
-  listConversations,
-  listDirectMessagesForUser,
-  markConversationRead,
-  sendDirectMessage,
-} from "@/lib/directMessages";
+import { DirectMessageError, markConversationRead, sendDirectMessage } from "@/lib/directMessages";
 
-export async function sendMessageAction(formData: FormData): Promise<{ error?: string }> {
+export interface MessageActionState {
+  error?: string;
+}
+
+export async function sendMessageAction(
+  _prev: MessageActionState,
+  formData: FormData,
+): Promise<MessageActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -37,5 +38,3 @@ export async function markReadAction(otherUserId: string): Promise<void> {
   markConversationRead(user.id, otherUserId);
   revalidatePath("/messages");
 }
-
-export { listConversations, listDirectMessagesForUser };

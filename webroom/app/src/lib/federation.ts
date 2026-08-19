@@ -54,8 +54,8 @@ export function followRemoteProfile(followerUserId: string, profileUrl: string):
   } catch {
     throw new FederationError("Invalid profile URL.");
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new FederationError("Profile URL must be http or https.");
+  if (url.protocol !== "https:") {
+    throw new FederationError("Profile URL must be https.");
   }
   const host = url.hostname;
   if (isPrivateHost(host)) throw new FederationError("Cannot import profiles from private network addresses.");
@@ -123,10 +123,24 @@ export function listFederationFollows(userId: string): FederationFollow[] {
   });
 }
 
-/** Return true for localhost and private-network hostnames. */
-function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase();
-  if (h === "localhost" || h.endsWith(".local")) return true;
+/** Return true for localhost, loopback, link-local, and private-network hostnames. */
+export function isPrivateHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
+  if (h === "localhost" || h === "0.0.0.0" || h.endsWith(".local")) return true;
+  if (h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80:")) return true;
+
+  const ipv4 = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4) {
+    const a = Number(ipv4[1]);
+    const b = Number(ipv4[2]);
+    if (a === 127) return true;
+    if (a === 10) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+  }
+
   if (/^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h)) {
     return true;
   }

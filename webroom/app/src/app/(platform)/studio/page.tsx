@@ -16,7 +16,7 @@ export default async function StudioPage() {
   const friends = listFriends(viewer.id);
   const versions = listVersions(viewer.id);
   const guestbookEntries = listApprovedGuestbookEntries(viewer.id);
-  const installedPlugins = listInstalledPlugins();
+  const installedPlugins = listInstalledPlugins(viewer.id);
   const workingDocument = stored.draftDocument ?? stored.document;
 
   return (

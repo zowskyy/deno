@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import {
   findUserForModeration,
   isModerator,
-  logModeratorAction,
   reviewReport,
   setPlatformBlock,
 } from "@/lib/moderation";
@@ -63,7 +62,6 @@ export async function reviewThemeReportAction(reportId: string, formData: FormDa
   const moderator = await requireModerator();
   const note = String(formData.get("note") ?? "");
   if (reviewThemeReport(reportId, moderator.id, "reviewed", note)) {
-    logModeratorAction(moderator.id, "theme_report_reviewed", null, note);
     revalidatePath("/moderation");
   }
 }
@@ -72,7 +70,6 @@ export async function dismissThemeReportAction(reportId: string, formData: FormD
   const moderator = await requireModerator();
   const note = String(formData.get("note") ?? "");
   if (reviewThemeReport(reportId, moderator.id, "dismissed", note)) {
-    logModeratorAction(moderator.id, "theme_report_dismissed", null, note);
     revalidatePath("/moderation");
   }
 }
@@ -81,7 +78,6 @@ export async function grantAppealAction(appealId: string, formData: FormData): P
   const moderator = await requireModerator();
   const note = String(formData.get("note") ?? "");
   if (reviewAppeal(appealId, moderator.id, "granted", note)) {
-    logModeratorAction(moderator.id, "appeal_granted", null, note);
     revalidatePath("/moderation");
   }
 }
@@ -90,7 +86,6 @@ export async function dismissAppealAction(appealId: string, formData: FormData):
   const moderator = await requireModerator();
   const note = String(formData.get("note") ?? "");
   if (reviewAppeal(appealId, moderator.id, "dismissed", note)) {
-    logModeratorAction(moderator.id, "appeal_dismissed", null, note);
     revalidatePath("/moderation");
   }
 }

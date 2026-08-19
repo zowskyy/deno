@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
+import { logModeratorAction } from "./moderation";
 
 /** Error thrown when an appeal action fails validation or preconditions. */
 export class AppealError extends Error {}
@@ -120,6 +121,11 @@ export function reviewAppeal(
     if (status === "granted") {
       db.prepare("UPDATE users SET is_blocked_platform = 0 WHERE id = ?").run(appeal.user_id);
     }
+
+    const user = db.prepare("SELECT handle FROM users WHERE id = ?").get(appeal.user_id) as
+      | { handle: string }
+      | undefined;
+    logModeratorAction(moderatorId, `appeal_${status}`, user?.handle ?? null, note);
 
     db.exec("COMMIT");
     return true;

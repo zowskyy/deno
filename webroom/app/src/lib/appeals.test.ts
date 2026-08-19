@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import { authenticateBlockedForAppeal, createUser, InvalidCredentialsError, ValidationError } from "./auth";
 import { AppealError, fileAppeal, listOpenAppeals, reviewAppeal } from "./appeals";
 import { getDb, resetDbForTests } from "./db";
@@ -45,24 +46,22 @@ describe("appeals", () => {
     expect(() => authenticateBlockedForAppeal("freeuser", "wrong-password")).toThrow(InvalidCredentialsError);
   });
 
-  it("concurrent open appeals leave exactly one row for the same user", async () => {
+  it("rejects a duplicate open appeal and keeps exactly one row", () => {
     const mod = createUser("moduser", "correct-horse-battery");
     const user = createUser("blockeduser", "correct-horse-battery");
     setPlatformBlock(user.id, true, mod.id);
 
-    const results = await Promise.allSettled([
-      Promise.resolve().then(() => fileAppeal(user.id, "first concurrent appeal")),
-      Promise.resolve().then(() => fileAppeal(user.id, "second concurrent appeal")),
-    ]);
-
-    const fulfilled = results.filter((r) => r.status === "fulfilled");
-    const rejected = results.filter((r) => r.status === "rejected");
-    expect(fulfilled).toHaveLength(1);
-    expect(rejected).toHaveLength(1);
-    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(AppealError);
-    expect((rejected[0] as PromiseRejectedResult).reason.message).toBe("You already have an open appeal.");
-
     const db = getDb();
+    fileAppeal(user.id, "first appeal");
+    expect(() => fileAppeal(user.id, "second appeal")).toThrow(AppealError);
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO appeals (id, user_id, appeal_type, reason, created_at) VALUES (?, ?, 'platform_block', ?, ?)",
+        )
+        .run(randomUUID(), user.id, "racing appeal", new Date().toISOString()),
+    ).toThrow(/UNIQUE constraint failed/);
+
     const count = db
       .prepare("SELECT COUNT(*) as c FROM appeals WHERE user_id = ? AND status = 'open'")
       .get(user.id) as { c: number };

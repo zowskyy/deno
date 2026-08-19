@@ -156,7 +156,8 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
 
   if (rejected.length > 0) return { css: "", warnings, rejected };
 
-  const rules = splitCssRules(raw);
+  const source = stripCssComments(raw);
+  const rules = splitCssRules(source);
   if (rules.length > MAX_RULE_COUNT) {
     rejected.push(`Too many rules (${rules.length}); maximum is ${MAX_RULE_COUNT}.`);
     return { css: "", warnings, rejected };

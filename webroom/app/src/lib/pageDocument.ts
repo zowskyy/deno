@@ -1,6 +1,6 @@
 import { getDb } from "./db";
 import { randomUUID } from "node:crypto";
-import { recordFeedEvent } from "./feed";
+import { insertFeedEvent } from "./feed";
 import {
   CURRENT_SCHEMA_VERSION,
   PageDocumentSchema,
@@ -169,18 +169,35 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
     .get(userId) as { document_json: string; is_published: number } | undefined;
 
   if (existing) {
-    db.prepare(
-      "INSERT INTO page_document_versions (id, user_id, document_json, created_at) VALUES (?, ?, ?, ?)",
-    ).run(randomUUID(), userId, existing.document_json, now);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.prepare(
+        "INSERT INTO page_document_versions (id, user_id, document_json, created_at) VALUES (?, ?, ?, ?)",
+      ).run(randomUUID(), userId, existing.document_json, now);
 
-    db.prepare("UPDATE page_documents SET document_json = ?, updated_at = ? WHERE user_id = ?").run(
-      JSON.stringify(document),
-      now,
-      userId,
-    );
+      db.prepare("UPDATE page_documents SET document_json = ?, updated_at = ? WHERE user_id = ?").run(
+        JSON.stringify(document),
+        now,
+        userId,
+      );
 
-    if (existing.is_published) {
-      recordFeedEvent(userId, "page_updated", { at: now });
+      syncPageTags(userId, document.tags);
+
+      if (existing.is_published) {
+        insertFeedEvent(db, userId, "page_updated", { at: now }, now);
+      }
+
+      db.prepare(
+        `DELETE FROM page_document_versions
+         WHERE user_id = ? AND id NOT IN (
+           SELECT id FROM page_document_versions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
+         )`,
+      ).run(userId, userId, MAX_VERSIONS_KEPT);
+
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
     }
   } else {
     db.prepare(
@@ -189,14 +206,9 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
     ).run(userId, JSON.stringify(document), now);
   }
 
-  syncPageTags(userId, document.tags);
-
-  db.prepare(
-    `DELETE FROM page_document_versions
-     WHERE user_id = ? AND id NOT IN (
-       SELECT id FROM page_document_versions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
-     )`,
-  ).run(userId, userId, MAX_VERSIONS_KEPT);
+  if (!existing) {
+    syncPageTags(userId, document.tags);
+  }
 
   return document;
 }
@@ -296,13 +308,20 @@ export function setPublished(userId: string, published: boolean): void {
     | undefined;
   if (!existing) throw new Error("Cannot publish before a page document exists — save one first.");
   const now = new Date().toISOString();
-  db.prepare("UPDATE page_documents SET is_published = ?, updated_at = ? WHERE user_id = ?").run(
-    published ? 1 : 0,
-    now,
-    userId,
-  );
-  if (published && !existing.is_published) {
-    recordFeedEvent(userId, "page_published", { at: now });
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.prepare("UPDATE page_documents SET is_published = ?, updated_at = ? WHERE user_id = ?").run(
+      published ? 1 : 0,
+      now,
+      userId,
+    );
+    if (published && !existing.is_published) {
+      insertFeedEvent(db, userId, "page_published", { at: now }, now);
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
   }
 }
 

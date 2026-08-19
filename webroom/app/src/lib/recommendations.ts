@@ -15,6 +15,7 @@ export interface RecommendedPage {
  * tag overlap (40%) + friend-of-friend (35%) + recency (25%).
  * Same inputs always produce the same ranking.
  */
+/** Deterministic recommendation score: tag overlap + friend-of-friend + recency. */
 export function listRecommendedPages(viewerId: string | null, limit = 12): RecommendedPage[] {
   const db = getDb();
   const cap = Math.min(limit, 24);

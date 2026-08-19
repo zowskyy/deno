@@ -9,6 +9,7 @@ export async function installPluginAction(formData: FormData): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const slug = String(formData.get("slug") ?? "");
-  installMarketplacePlugin(slug);
+  installMarketplacePlugin(user.id, slug);
   revalidatePath("/marketplace");
+  revalidatePath("/studio");
 }

@@ -71,36 +71,44 @@ function generateFromTemplate(options: AiGenerateOptions): PageDocument {
 /** Optional LLM-backed generation when API key is configured. */
 async function generateWithLlm(apiKey: string, options: AiGenerateOptions): Promise<PageDocument> {
   const base = defaultPageDocument(options.displayName);
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.WEBROOM_AI_MODEL ?? "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You generate Webroom page document JSON. Return only valid JSON matching the schema fields: identity.displayName, identity.bio, now, tags (array), pageParts (array). No markdown.",
-        },
-        {
-          role: "user",
-          content: `Display name: ${options.displayName}\nPrompt: ${options.prompt}\nBase: ${JSON.stringify({ identity: base.identity, now: "", tags: [], pageParts: base.pageParts })}`,
-        },
-      ],
-      temperature: 0.7,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.WEBROOM_AI_MODEL ?? "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You generate Webroom page document JSON. Return only valid JSON matching the schema fields: identity.displayName, identity.bio, now, tags (array), pageParts (array). No markdown.",
+          },
+          {
+            role: "user",
+            content: `Display name: ${options.displayName}\nPrompt: ${options.prompt}\nBase: ${JSON.stringify({ identity: base.identity, now: "", tags: [], pageParts: base.pageParts })}`,
+          },
+        ],
+        temperature: 0.7,
+      }),
+    });
 
-  if (!response.ok) throw new AiPageError("AI service unavailable.");
-  const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = data.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new AiPageError("AI returned empty response.");
+    if (!response.ok) throw new AiPageError("AI service unavailable.");
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new AiPageError("AI returned empty response.");
 
-  const parsed = JSON.parse(content) as Record<string, unknown>;
-  return parsePageDocument({ ...base, ...parsed, version: 3 });
+    const jsonText = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    return parsePageDocument({ ...base, ...parsed, version: 3 });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /** Derive a short bio from the user's prompt. */

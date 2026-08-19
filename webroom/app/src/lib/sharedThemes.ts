@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
+import { logModeratorAction } from "./moderation";
 import type { PageDocument } from "./pageDocumentTypes";
 
 /** Community theme package with metadata and installable theme data. */
@@ -226,10 +227,24 @@ export function reviewThemeReport(
 ): boolean {
   const db = getDb();
   const now = new Date().toISOString();
-  const result = db
-    .prepare(
-      "UPDATE theme_reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
-    )
-    .run(status, moderatorId, note.trim() || null, now, reportId);
-  return result.changes > 0;
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = db
+      .prepare(
+        "UPDATE theme_reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
+      )
+      .run(status, moderatorId, note.trim() || null, now, reportId);
+    if (result.changes === 0) {
+      db.exec("ROLLBACK");
+      return false;
+    }
+
+    logModeratorAction(moderatorId, `theme_report_${status}`, null, note);
+    db.exec("COMMIT");
+    return true;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }

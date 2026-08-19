@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { createUser } from "./auth";
 import { resetDbForTests } from "./db";
 import {
   ensureSeedMarketplacePlugins,
@@ -14,19 +15,23 @@ beforeEach(() => {
 });
 
 describe("plugins marketplace", () => {
-  it("seeds and installs plugins", () => {
+  it("seeds and installs plugins per user", () => {
     ensureSeedMarketplacePlugins();
     const catalog = listMarketplacePlugins();
     expect(catalog.length).toBeGreaterThan(0);
 
+    const a = createUser("pluginusera", "correct-horse-battery");
+    const b = createUser("pluginuserb", "correct-horse-battery");
     const slug = catalog[0]!.slug;
-    installMarketplacePlugin(slug);
-    const installed = listInstalledPlugins();
-    expect(installed.some((p) => p.slug === slug)).toBe(true);
+
+    installMarketplacePlugin(a.id, slug);
+    expect(listInstalledPlugins(a.id).some((p) => p.slug === slug)).toBe(true);
+    expect(listInstalledPlugins(b.id).some((p) => p.slug === slug)).toBe(false);
   });
 
   it("throws for unknown plugin slugs", () => {
     ensureSeedMarketplacePlugins();
-    expect(() => installMarketplacePlugin("not-real")).toThrow();
+    const user = createUser("pluginuserc", "correct-horse-battery");
+    expect(() => installMarketplacePlugin(user.id, "not-real")).toThrow();
   });
 });

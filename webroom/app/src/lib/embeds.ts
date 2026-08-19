@@ -63,3 +63,9 @@ export function parseAllowlistedEmbed(rawUrl: string): ParsedEmbed | null {
 export function isAllowlistedEmbedUrl(rawUrl: string): boolean {
   return parseAllowlistedEmbed(rawUrl) !== null;
 }
+
+/** Return true when a stored embed object matches the allowlisted provider URL. */
+export function isAllowlistedEmbed(embed: { provider: string; embedUrl: string }): boolean {
+  const parsed = parseAllowlistedEmbed(embed.embedUrl);
+  return parsed !== null && parsed.provider === embed.provider && parsed.embedUrl === embed.embedUrl;
+}

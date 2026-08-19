@@ -87,6 +87,20 @@ function migrate(db: DatabaseSync): void {
   if (!indexExists(db, "idx_appeals_one_open_per_user")) {
     ensureAppealsUniqueIndex(db);
   }
+  if (!columnExists(db, "installed_plugins", "user_id")) {
+    db.exec("DROP TABLE IF EXISTS installed_plugins");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL,
+        UNIQUE (user_id, slug)
+      )`,
+    );
+    db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
+  }
 }
 
 /** Reconcile duplicate open appeals and create the one-open-per-user unique index. */

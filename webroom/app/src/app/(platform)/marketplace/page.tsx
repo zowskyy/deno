@@ -8,7 +8,7 @@ export default async function MarketplacePage() {
   if (!user) redirect("/login");
 
   const catalog = listMarketplacePlugins();
-  const installed = listInstalledPlugins();
+  const installed = listInstalledPlugins(user.id);
   const installedSlugs = new Set(installed.map((p) => p.slug));
 
   return (

@@ -61,10 +61,10 @@ describe("exportLocalProfile", () => {
 });
 
 describe("followRemoteProfile", () => {
-  it("rejects private network hosts", () => {
+  it("rejects http profile URLs", () => {
     const user = createUser("follower", "correct-horse-battery");
     expect(() =>
-      followRemoteProfile(user.id, "https://localhost/api/federation/profile/x"),
+      followRemoteProfile(user.id, "http://example.com/api/federation/profile/x"),
     ).toThrow(FederationError);
   });
 });

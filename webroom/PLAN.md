@@ -251,7 +251,23 @@ pattern · scoped custom CSS.
 else reuses and remixes a theme, without losing creator credit or
 accessibility guarantees. ✓
 
-## What V1 excludes
+## Post-V1 (shipped)
+
+The following were explicitly excluded from V1 but are now implemented:
+
+- **Hosted uploads** — images and audio stored on the instance (gallery, shrine, playlist, avatar)
+- **Direct messages** — private conversations between accounts
+- **Activity feed** — friend-prioritized updates when pages are published or redecorated
+- **Recommendations** — deterministic scoring (shared tags, friend-of-friend, recency) — not engagement metrics
+- **Federation** — public profile export API and remote profile follows (SSRF-guarded)
+- **Self-hosting** — instance URL configuration for moderators
+- **Third-party embeds** — allowlisted Spotify and YouTube in playlist modules (sandboxed iframes, no autoplay)
+- **Plugin marketplace** — structured data modules (quote card, countdown, currently reading)
+- **AI page generation** — template-based offline; optional LLM when `WEBROOM_AI_API_KEY` is set
+
+**Still excluded permanently:** visitor analytics (page views, referrers, tracking).
+
+## What V1 excluded (historical)
 
 Infinite feed, DMs, arbitrary CSS/HTML, JavaScript in pages, third-party
 embeds, autoplay music, plugin system, marketplace, AI-generated pages,

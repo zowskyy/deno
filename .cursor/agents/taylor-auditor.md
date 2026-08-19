@@ -40,7 +40,7 @@ Also read: `.cursor/agents/taylor-implementer.md` feature requirements for the a
 - [ ] **Plugins** — manifest validated; no arbitrary code execution; unknown types fail closed
 - [ ] **AI** — output validated through `parsePageDocument`; no auto-publish; API key server-only
 - [ ] **Moderation** — atomic review functions; transactions where status + side effect must match
-- [ ] **No visitor analytics** — grep for `pageview`, `analytics`, `tracking`, `referrer` logging — must be absent
+- [ ] **No visitor analytics** — grep `webroom/app/src` for `pageview`, `analytics`, `tracking`, `referrer` logging; treat docs/README matches as informational only
 
 ### Completeness (fail if feature is stubbed)
 

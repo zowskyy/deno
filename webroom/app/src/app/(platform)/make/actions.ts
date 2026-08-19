@@ -14,6 +14,7 @@ import {
 } from "@/lib/pageDocument";
 import { defaultPageDocumentFieldsV3 } from "@/lib/pageDocumentTypes";
 import { TEMPLATE_PRESETS } from "@/lib/pageDocumentTheme";
+import { validateDocumentCss } from "@/lib/studioValidation";
 
 export interface MakeState {
   error?: string;
@@ -85,6 +86,8 @@ export async function saveAiPageAction(documentJson: string): Promise<MakeState>
 
   try {
     const document = parsePageDocument(JSON.parse(documentJson) as unknown);
+    const cssError = validateDocumentCss(document, viewer.handle);
+    if (cssError) return { error: cssError };
     savePageDocument(viewer.id, document);
   } catch (e) {
     if (e instanceof PageDocumentValidationError) {

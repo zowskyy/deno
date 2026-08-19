@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDb } from "./db";
@@ -32,11 +32,22 @@ export function getUploadDir(): string {
   return dir;
 }
 
-/** Maximum upload size in bytes (default 10MB). */
+/** Maximum upload size in bytes (default 5MB images, 15MB audio). */
 export function maxUploadBytes(kind: "image" | "audio"): number {
   const env = process.env.WEBROOM_MAX_UPLOAD_BYTES;
-  if (env) return Number(env);
+  if (env) {
+    const bytes = Number(env);
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+      return kind === "audio" ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+    }
+    return bytes;
+  }
   return kind === "audio" ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+}
+
+/** Absolute maximum request size for any upload (audio cap plus multipart overhead). */
+export function maxUploadRequestBytes(): number {
+  return maxUploadBytes("audio") + 256 * 1024;
 }
 
 /** Store an uploaded file and record metadata in the database. */
@@ -121,4 +132,22 @@ export function readAssetFile(assetId: string): { buffer: Buffer; mimeType: stri
 export function userOwnsAsset(userId: string, assetId: string): boolean {
   const asset = getUserAsset(assetId);
   return asset?.userId === userId;
+}
+
+/** Delete hosted asset files for a user before removing account metadata. */
+export function purgeUserAssetFiles(userId: string): void {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT storage_path FROM user_assets WHERE user_id = ?")
+    .all(userId) as { storage_path: string }[];
+  for (const row of rows) {
+    if (existsSync(row.storage_path)) {
+      try {
+        unlinkSync(row.storage_path);
+      } catch {
+        throw new AssetError(`Failed to delete hosted asset file: ${row.storage_path}`);
+      }
+    }
+  }
+  db.prepare("DELETE FROM user_assets WHERE user_id = ?").run(userId);
 }

@@ -12,8 +12,7 @@ Update human-facing documentation so a non-engineer product owner can understand
 
 ## When you run
 
-- Wave 5 after implementer handoff artifacts are stable
-- After verifier PASS, before PR merge (final doc sync)
+- Wave 5 after implementer handoff artifacts are stable (before auditor and verifier gates)
 - When orchestrator assigns README-only tasks
 
 ## Inputs required

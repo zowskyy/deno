@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 import { hasBlockRelationship } from "./friends";
-import { checkRateLimit, rateLimitActorKey } from "./rateLimit";
+import { checkRateLimit, rateLimitActorKey, RateLimitError } from "./rateLimit";
 
 /** Error thrown when a direct message cannot be sent. */
 export class DirectMessageError extends Error {}
@@ -33,8 +33,15 @@ export async function sendDirectMessage(
     throw new DirectMessageError("You cannot message this user.");
   }
 
-  const key = await rateLimitActorKey("dm:send", senderId);
-  checkRateLimit(key, 30);
+  try {
+    const key = await rateLimitActorKey("dm:send", senderId);
+    checkRateLimit(key, 30);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw new DirectMessageError(error.message);
+    }
+    throw error;
+  }
 
   const db = getDb();
   const recipient = db.prepare("SELECT id FROM users WHERE id = ?").get(recipientId);
@@ -72,10 +79,16 @@ export function listDirectMessagesForUser(
     params.push(userId, options.withUserId, options.withUserId, userId);
   }
   if (options?.cursor) {
-    sql += ` AND dm.created_at < ?`;
-    params.push(options.cursor);
+    const [cursorAt, cursorId] = options.cursor.split("|");
+    if (cursorAt && cursorId) {
+      sql += ` AND (dm.created_at < ? OR (dm.created_at = ? AND dm.id < ?))`;
+      params.push(cursorAt, cursorAt, cursorId);
+    } else {
+      sql += ` AND dm.created_at < ?`;
+      params.push(options.cursor);
+    }
   }
-  sql += ` ORDER BY dm.created_at DESC LIMIT ?`;
+  sql += ` ORDER BY dm.created_at DESC, dm.id DESC LIMIT ?`;
   params.push(limit);
 
   const rows = db.prepare(sql).all(...params) as {
@@ -112,39 +125,49 @@ export function listConversations(userId: string): {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT
-         CASE WHEN dm.sender_id = ? THEN dm.recipient_id ELSE dm.sender_id END as other_id,
-         CASE WHEN dm.sender_id = ? THEN r.handle ELSE s.handle END as other_handle,
-         dm.body, dm.created_at, dm.read_at, dm.recipient_id
-       FROM direct_messages dm
-       JOIN users s ON s.id = dm.sender_id
-       JOIN users r ON r.id = dm.recipient_id
-       WHERE dm.sender_id = ? OR dm.recipient_id = ?
-       ORDER BY dm.created_at DESC`,
+      `WITH peers AS (
+         SELECT
+           CASE WHEN dm.sender_id = ? THEN dm.recipient_id ELSE dm.sender_id END AS other_id,
+           dm.body,
+           dm.created_at,
+           dm.recipient_id,
+           dm.read_at,
+           ROW_NUMBER() OVER (
+             PARTITION BY CASE WHEN dm.sender_id = ? THEN dm.recipient_id ELSE dm.sender_id END
+             ORDER BY dm.created_at DESC, dm.id DESC
+           ) AS rn
+         FROM direct_messages dm
+         WHERE dm.sender_id = ? OR dm.recipient_id = ?
+       )
+       SELECT p.other_id, u.handle AS other_handle, p.body, p.created_at, p.recipient_id, p.read_at,
+              EXISTS (
+                SELECT 1 FROM direct_messages unread
+                WHERE unread.recipient_id = ?
+                  AND unread.sender_id = p.other_id
+                  AND unread.read_at IS NULL
+              ) AS has_unread
+       FROM peers p
+       JOIN users u ON u.id = p.other_id
+       WHERE p.rn = 1
+       ORDER BY p.created_at DESC`,
     )
-    .all(userId, userId, userId, userId) as {
+    .all(userId, userId, userId, userId, userId) as {
     other_id: string;
     other_handle: string;
     body: string;
     created_at: string;
-    read_at: string | null;
     recipient_id: string;
+    read_at: string | null;
+    has_unread: number;
   }[];
 
-  const seen = new Set<string>();
-  const out: ReturnType<typeof listConversations> = [];
-  for (const row of rows) {
-    if (seen.has(row.other_id)) continue;
-    seen.add(row.other_id);
-    out.push({
-      otherUserId: row.other_id,
-      otherHandle: row.other_handle,
-      lastMessage: row.body,
-      lastAt: row.created_at,
-      unread: row.recipient_id === userId && !row.read_at,
-    });
-  }
-  return out;
+  return rows.map((row) => ({
+    otherUserId: row.other_id,
+    otherHandle: row.other_handle,
+    lastMessage: row.body,
+    lastAt: row.created_at,
+    unread: row.has_unread === 1,
+  }));
 }
 
 /** Mark messages from a sender as read for the recipient. */
