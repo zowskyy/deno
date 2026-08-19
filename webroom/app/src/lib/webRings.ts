@@ -67,6 +67,21 @@ export function getRingNavigation(ringId: string, currentUserId: string): { prev
   };
 }
 
+/** Rings a user belongs to — for profile badges and navigation. */
+export function listUserWebRings(userId: string): WebRing[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT wr.id, wr.slug, wr.name, wr.description
+       FROM web_rings wr
+       JOIN web_ring_members wrm ON wrm.ring_id = wr.id
+       WHERE wrm.user_id = ?
+       ORDER BY wr.name ASC`,
+    )
+    .all(userId) as { id: string; slug: string; name: string; description: string }[];
+  return rows;
+}
+
 export function ensureSeedRings(): void {
   const db = getDb();
   const count = db.prepare("SELECT COUNT(*) as c FROM web_rings").get() as { c: number };
