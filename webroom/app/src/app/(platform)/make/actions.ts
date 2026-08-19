@@ -8,10 +8,11 @@ import {
   savePageDocument,
   setPublished,
   setVisibility,
-  TEMPLATE_PRESETS,
   type PageDocument,
   type TemplateId,
 } from "@/lib/pageDocument";
+import { defaultPageDocumentFieldsV3 } from "@/lib/pageDocumentTypes";
+import { TEMPLATE_PRESETS } from "@/lib/pageDocumentTheme";
 
 export interface MakeState {
   error?: string;
@@ -52,18 +53,14 @@ export async function makeFlowAction(_prevState: MakeState, formData: FormData):
       density: "comfortable",
       fontStyle: preset.fontStyle,
       reduceMotion: false,
+      customCss: "",
+      customCssEnabled: false,
+      attribution: undefined,
     },
     pageParts: ["identity", ...selectedParts.filter((p) => p !== "identity")] as PageDocument["pageParts"],
     links,
     now,
-    gallery: [],
-    blog: [],
-    devlog: [],
-    badges: [],
-    topEight: [],
-    tags: [],
-    guestbook: { enabled: true, requireApproval: true },
-    access: { altTextReminder: true, contrastWarningsEnabled: true },
+    ...defaultPageDocumentFieldsV3(),
   };
 
   try {

@@ -145,3 +145,34 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   count INTEGER NOT NULL DEFAULT 0,
   window_start TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS shared_themes (
+  id TEXT PRIMARY KEY,
+  creator_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  version INTEGER NOT NULL DEFAULT 1,
+  theme_json TEXT NOT NULL,
+  forked_from_id TEXT REFERENCES shared_themes(id) ON DELETE SET NULL,
+  attribution_handle TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS theme_versions (
+  id TEXT PRIMARY KEY,
+  theme_id TEXT NOT NULL REFERENCES shared_themes(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  theme_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS theme_reports (
+  id TEXT PRIMARY KEY,
+  theme_id TEXT NOT NULL REFERENCES shared_themes(id) ON DELETE CASCADE,
+  reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewed', 'dismissed'))
+);
