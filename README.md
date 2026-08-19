@@ -325,3 +325,7 @@ pytest
 - **No cloud**: all measurements are local or to user-chosen targets; the
   dashboard is a stdlib `http.server`, the store is a local SQLite file.
 - **No ML**: the classifier uses deterministic rules, testable in isolation.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
