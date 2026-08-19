@@ -69,6 +69,23 @@ export function MakeForm({ initialDisplayName }: { initialDisplayName: string })
         <input id="bio" name="bio" type="text" maxLength={280} placeholder="Making small strange worlds." />
       </div>
 
+      <div className="field">
+        <label htmlFor="now">What&apos;s happening now?</label>
+        <input id="now" name="now" type="text" maxLength={280} placeholder="Sketching a zine, learning linocut…" />
+      </div>
+
+      <fieldset style={{ border: "none", padding: 0, margin: "0 0 1.5rem" }}>
+        <legend style={{ fontWeight: 600, marginBottom: "0.6rem" }}>One link</legend>
+        <div className="field">
+          <label htmlFor="linkLabel">Link label</label>
+          <input id="linkLabel" name="linkLabel" type="text" maxLength={80} placeholder="My portfolio" />
+        </div>
+        <div className="field">
+          <label htmlFor="linkUrl">Link URL</label>
+          <input id="linkUrl" name="linkUrl" type="url" placeholder="https://example.com" />
+        </div>
+      </fieldset>
+
       <fieldset style={{ border: "none", padding: 0, margin: "0 0 1.5rem" }}>
         <legend style={{ fontWeight: 600, marginBottom: "0.6rem" }}>What belongs on your page?</legend>
         {PARTS.map((p) => (

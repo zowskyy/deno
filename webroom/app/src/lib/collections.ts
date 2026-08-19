@@ -18,7 +18,7 @@ export function listCollections(): Collection[] {
   const db = getDb();
   return db
     .prepare("SELECT id, slug, title, description FROM collections ORDER BY title ASC")
-    .all() as Collection[];
+    .all() as unknown as Collection[];
 }
 
 export function getCollectionBySlug(slug: string): Collection | null {

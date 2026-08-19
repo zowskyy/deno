@@ -26,21 +26,20 @@ export async function unblockUserAction(blockedUserId: string): Promise<void> {
   revalidatePath("/settings");
 }
 
-export async function unblockAction(handle: string): Promise<SettingsActionState> {
+export async function unblockAction(handle: string): Promise<void> {
   const viewer = await getCurrentUser();
-  if (!viewer) return { error: "Log in to manage blocks." };
+  if (!viewer) return;
 
   const target = findUserByHandle(handle);
-  if (!target) return { error: "That user doesn't exist." };
+  if (!target) return;
 
   unblockUser(viewer.id, target.id);
   revalidatePath("/settings");
-  return {};
 }
 
-export async function acceptIncomingAction(requestId: string): Promise<SettingsActionState> {
+export async function acceptIncomingAction(requestId: string): Promise<void> {
   const viewer = await getCurrentUser();
-  if (!viewer) return { error: "Log in to manage friend requests." };
+  if (!viewer) return;
 
   try {
     const key = await rateLimitActorKey("friend", viewer.id);
@@ -48,16 +47,15 @@ export async function acceptIncomingAction(requestId: string): Promise<SettingsA
     acceptFriendRequest(viewer.id, requestId);
     revalidatePath("/settings");
   } catch (e) {
-    if (e instanceof FriendRequestError || e instanceof FriendLinkNotFoundError) return { error: e.message };
-    if (e instanceof RateLimitError) return { error: e.message };
+    if (e instanceof FriendRequestError || e instanceof FriendLinkNotFoundError) return;
+    if (e instanceof RateLimitError) return;
     throw e;
   }
-  return {};
 }
 
-export async function declineIncomingAction(requestId: string): Promise<SettingsActionState> {
+export async function declineIncomingAction(requestId: string): Promise<void> {
   const viewer = await getCurrentUser();
-  if (!viewer) return { error: "Log in to manage friend requests." };
+  if (!viewer) return;
 
   try {
     const key = await rateLimitActorKey("friend", viewer.id);
@@ -65,40 +63,37 @@ export async function declineIncomingAction(requestId: string): Promise<Settings
     removeFriendLink(viewer.id, requestId);
     revalidatePath("/settings");
   } catch (e) {
-    if (e instanceof FriendRequestError) return { error: e.message };
-    if (e instanceof RateLimitError) return { error: e.message };
+    if (e instanceof FriendRequestError) return;
+    if (e instanceof RateLimitError) return;
     throw e;
   }
-  return {};
 }
 
-export async function approveGuestbookAction(entryId: string): Promise<SettingsActionState> {
+export async function approveGuestbookAction(entryId: string): Promise<void> {
   const viewer = await getCurrentUser();
-  if (!viewer) return { error: "Log in to moderate guestbook entries." };
+  if (!viewer) return;
 
   try {
     moderateGuestbookEntry(viewer.id, entryId, true);
     revalidatePath("/settings");
     revalidatePath(`/@${viewer.handle}`);
   } catch (e) {
-    if (e instanceof GuestbookError) return { error: e.message };
+    if (e instanceof GuestbookError) return;
     throw e;
   }
-  return {};
 }
 
-export async function rejectGuestbookAction(entryId: string): Promise<SettingsActionState> {
+export async function rejectGuestbookAction(entryId: string): Promise<void> {
   const viewer = await getCurrentUser();
-  if (!viewer) return { error: "Log in to moderate guestbook entries." };
+  if (!viewer) return;
 
   try {
     moderateGuestbookEntry(viewer.id, entryId, false);
     revalidatePath("/settings");
   } catch (e) {
-    if (e instanceof GuestbookError) return { error: e.message };
+    if (e instanceof GuestbookError) return;
     throw e;
   }
-  return {};
 }
 
 export async function panicModeAction(): Promise<void> {
