@@ -269,6 +269,16 @@ touch /tmp/confirm-sqm
 
 The safety wrapper is **opt-in and never auto-invoked**. The probe itself remains read-only.
 
+`--backup` doesn't need to be pre-populated — the tool runs its own
+`uci export sqm` into that path before applying anything, and refuses to
+proceed at all if that save fails (no safe way to try an untested config
+without a verified way back). `--confirm-timeout` must be at least 5
+seconds; shorter values are rejected outright rather than silently
+accepted. If restoring the old config during a rollback itself fails, the
+tool prints `ROLLBACK FAILED: ... manual intervention required` instead of
+a `rollback: ...` success message — treat that output as an actual
+incident, not a routine log line.
+
 ## Verification Checklist
 
 Before pilot deployment:

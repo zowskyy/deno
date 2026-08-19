@@ -192,14 +192,30 @@ JSON Schema.
 ## QoS safety wrapper (opt-in, standalone)
 
 `probe/safety.py` implements the timed-rollback pattern for applying a new
-SQM/CAKE configuration:
+SQM/CAKE configuration. This is the only part of gateway-probe that can
+change router state, so every step is designed to report what actually
+happened, not just what was attempted:
 
-1. Save the current UCI `sqm` config.
+1. Save the current UCI `sqm` config. **Aborts here** — never touching the
+   new config at all — if the save itself fails, since there's no safe way
+   to try an untested config without a verified way back.
 2. Apply the proposed config.
-3. Check gateway reachability; roll back immediately on failure.
-4. Check WAN reachability; roll back immediately on failure.
-5. Otherwise, arm a timer: if `--confirm-file` is not touched within
-   `--confirm-timeout` seconds, the old config is restored automatically.
+3. Check gateway reachability (a ping success with heavy packet loss,
+   e.g. 80%, does **not** count as reachable — see
+   `MAX_ACCEPTABLE_LOSS_PERCENT`); roll back immediately on failure.
+4. Check WAN reachability, same standard; roll back immediately on failure.
+5. If the config committed to disk but the `sqm` service itself failed to
+   restart, that also triggers rollback — a partial failure is never
+   silently treated as "nothing happened."
+6. Otherwise, arm a timer: if `--confirm-file` is not touched within
+   `--confirm-timeout` seconds (minimum 5s, enforced), the old config is
+   restored automatically.
+
+Every rollback — immediate or timer-fired — **verifies its own result**.
+If restoring the old config also fails, the outcome is reported as
+`ROLLBACK FAILED: ... manual intervention required`, distinct from a
+successful `rollback: ...` — the tool never claims a router was safely
+reverted when the restore attempt actually failed.
 
 ```sh
 gateway-probe-safety apply \
@@ -215,7 +231,9 @@ This module is **never imported by `probe.api` or `probe.cli`** — it runs as
 its own process on purpose, so the rollback watchdog keeps working even if
 the dashboard crashes. All I/O (config save/apply, reachability checks) is
 injectable, which is how `tests/test_safety.py` verifies the rollback and
-confirmation logic without touching real `uci` or the network.
+confirmation logic without touching real `uci` or the network — including
+a forced-interleaving test that proves `confirm()` and the timer's own
+rollback can never race each other into reporting the wrong outcome.
 
 ## Repository layout
 
