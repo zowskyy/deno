@@ -68,4 +68,15 @@ describe("appeals", () => {
       .get(user.id) as { c: number };
     expect(count.c).toBe(1);
   });
+
+  it("reviewAppeal returns false when the appeal is no longer open", () => {
+    const mod = createUser("moduser", "correct-horse-battery");
+    const user = createUser("blockeduser", "correct-horse-battery");
+    setPlatformBlock(user.id, true, mod.id);
+    fileAppeal(user.id, "please review");
+
+    const [appeal] = listOpenAppeals();
+    expect(reviewAppeal(appeal!.id, mod.id, "granted", "ok")).toBe(true);
+    expect(reviewAppeal(appeal!.id, mod.id, "dismissed", "too late")).toBe(false);
+  });
 });

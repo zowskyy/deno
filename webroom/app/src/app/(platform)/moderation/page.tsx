@@ -137,7 +137,17 @@ export default async function ModerationPage() {
                     <Link href={`/explore/themes/${report.themeId}`}>View theme</Link>
                   </p>
                   <form action={reviewAction} style={{ marginTop: "0.75rem" }}>
-                    <textarea name="note" rows={2} placeholder="Moderator note (optional)" style={{ width: "100%", marginBottom: "0.5rem" }} />
+                    <label htmlFor={`theme-note-${report.id}`} className="sr-only">
+                      Moderator note for theme report
+                    </label>
+                    <textarea
+                      id={`theme-note-${report.id}`}
+                      name="note"
+                      rows={2}
+                      placeholder="Moderator note (optional)"
+                      aria-label="Moderator note for theme report"
+                      style={{ width: "100%", marginBottom: "0.5rem" }}
+                    />
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button type="submit" className="btn">Mark reviewed</button>
                       <button type="submit" className="btn secondary" formAction={dismissAction}>Dismiss</button>
@@ -170,7 +180,17 @@ export default async function ModerationPage() {
                     {new Date(appeal.createdAt).toLocaleString()} · {appeal.appealType.replace("_", " ")}
                   </p>
                   <form action={grantAction} style={{ marginTop: "0.75rem" }}>
-                    <textarea name="note" rows={2} placeholder="Moderator note (optional)" style={{ width: "100%", marginBottom: "0.5rem" }} />
+                    <label htmlFor={`appeal-note-${appeal.id}`} className="sr-only">
+                      Moderator note for appeal
+                    </label>
+                    <textarea
+                      id={`appeal-note-${appeal.id}`}
+                      name="note"
+                      rows={2}
+                      placeholder="Moderator note (optional)"
+                      aria-label="Moderator note for appeal"
+                      style={{ width: "100%", marginBottom: "0.5rem" }}
+                    />
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button type="submit" className="btn">Grant appeal</button>
                       <button type="submit" className="btn secondary" formAction={dismissAction}>Dismiss</button>

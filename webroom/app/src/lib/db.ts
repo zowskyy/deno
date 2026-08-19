@@ -41,7 +41,11 @@ function migrate(db: DatabaseSync): void {
   }
   if (!columnExists(db, "theme_reports", "moderator_id")) {
     db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_id TEXT REFERENCES users(id) ON DELETE SET NULL");
+  }
+  if (!columnExists(db, "theme_reports", "moderator_note")) {
     db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_note TEXT");
+  }
+  if (!columnExists(db, "theme_reports", "reviewed_at")) {
     db.exec("ALTER TABLE theme_reports ADD COLUMN reviewed_at TEXT");
   }
   if (!indexExists(db, "idx_appeals_one_open_per_user")) {

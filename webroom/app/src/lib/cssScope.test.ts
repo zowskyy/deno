@@ -35,6 +35,21 @@ describe("scopeProfileCss", () => {
     expect(result.rejected.length).toBeGreaterThan(0);
   });
 
+  it("rejects overlays inside @media rules", () => {
+    const result = scopeProfileCss(
+      "@media screen { .trap { position: fixed; z-index: 9999; inset: 0; } }",
+      ".profile-scope--x",
+    );
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.css).toBe("");
+  });
+
+  it("rejects comment-obfuscated overlay declarations", () => {
+    const result = scopeProfileCss(".trap { position/**/: absolute; z-index: 9999; }", ".profile-scope--x");
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.css).toBe("");
+  });
+
   it("allows @media prefers-reduced-motion", () => {
     const result = scopeProfileCss(
       "@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }",

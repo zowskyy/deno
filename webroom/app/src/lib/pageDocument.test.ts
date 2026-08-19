@@ -256,4 +256,24 @@ describe("canViewPage", () => {
     expect(canViewPage(stored, owner.id, owner.id)).toBe(true);
     expect(canViewPage(stored, owner.id, null)).toBe(false);
   });
+
+  it("public published pages are visible to anyone", () => {
+    const owner = createUser("voidarcade", "correct-horse-battery");
+    savePageDocument(owner.id, defaultPageDocument("Void"));
+    setPublished(owner.id, true);
+    setVisibility(owner.id, "public");
+    const stored = getPageDocument(owner.id)!;
+
+    expect(canViewPage(stored, owner.id, null)).toBe(true);
+  });
+
+  it("denies access for unknown visibility values", () => {
+    const owner = createUser("voidarcade", "correct-horse-battery");
+    savePageDocument(owner.id, defaultPageDocument("Void"));
+    setPublished(owner.id, true);
+    const stored = getPageDocument(owner.id)!;
+    (stored as { visibility: string }).visibility = "secret";
+
+    expect(canViewPage(stored, owner.id, null)).toBe(false);
+  });
 });

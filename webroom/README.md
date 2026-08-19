@@ -72,7 +72,7 @@ Phases 1–5 are **complete** and the release build is **hardened** — schema-v
 **Phase 5 — Rich modules and shared themes**
 - Shrine, Playlist (outbound links — no autoplay embeds), Pixel Art, and Mini-page modules · theme gallery · install and fork a theme · attribution · theme version history · theme reporting · scoped custom CSS · Wonder sparks for one-click creative surprises
 
-The test suite currently covers **114 tests** across validation, moderation, discovery, themes, and adversarial edge cases.
+The test suite covers validation, moderation, discovery, themes, and adversarial edge cases. Run `npm test` in `webroom/app` to verify the current count.
 
 **Every public page stays readable** through Reader Mode — decoration can be loud, but visitors are never trapped in chaos. Block, Report, and Reader controls are always visible and cannot be hidden by a theme.
 
@@ -88,17 +88,18 @@ Everything stays on the platform you run. There is no opt-in trend-sharing, tele
 
 ## Production deploy
 
-Set the moderator account before or right after your first user signs up:
+1. Create the moderator account and sign up with your chosen handle.
+2. Set the environment variable before loading `/moderation`:
 
 ```bash
-WEBROOM_MODERATOR_HANDLE=yourmodhandle
+export WEBROOM_MODERATOR_HANDLE=yourmodhandle
 ```
 
-On startup, if no moderator exists yet, Webroom promotes the account with that handle to moderator (the account must already exist). This is the recommended production path.
+3. Visit `/moderation` while signed in as a different account (or have the moderator account visit it). Webroom promotes the configured handle on first moderator-queue load when no moderator exists yet.
 
 | Variable | Purpose |
 |----------|---------|
-| `WEBROOM_MODERATOR_HANDLE` | Handle of the account to promote as moderator on first boot |
+| `WEBROOM_MODERATOR_HANDLE` | Handle to promote as moderator on first `/moderation` visit (account must already exist) |
 | `WEBROOM_DB_PATH` | Path to the SQLite database file (default: `webroom/app/webroom.db`) |
 | `WEBROOM_AUTO_MODERATOR_SEED` | Set to `true` to promote the first registered user as moderator if no handle is configured (development only) |
 

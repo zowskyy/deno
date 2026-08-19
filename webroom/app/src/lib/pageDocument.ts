@@ -225,8 +225,8 @@ export function canViewPage(
   if (!stored) return false;
   const isOwner = viewerId === ownerId;
   if (!stored.isPublished && !isOwner) return false;
-  if (stored.visibility === "private" && !isOwner) return false;
-  return true;
+  if (isOwner) return true;
+  return stored.visibility === "public" || stored.visibility === "unlisted";
 }
 
 export function getEffectiveDocument(stored: StoredPage, isOwner: boolean, safePreview: boolean): PageDocument {

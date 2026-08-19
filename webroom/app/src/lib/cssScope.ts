@@ -20,6 +20,25 @@ const BLOCKED_SELECTORS = /\b(html|body|:root|iframe|dialog|script|\.top-bar|\.s
 const MAX_CSS_LENGTH = 8000;
 const MAX_RULE_COUNT = 80;
 
+function stripCssComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
+function rejectUnsafeDeclarations(body: string, rejected: string[]): boolean {
+  const normalized = stripCssComments(body).replace(/\s+/g, " ");
+  const hasOverlayPosition = /position\s*:\s*(fixed|absolute)/i.test(normalized);
+  const hasZIndex = /\bz-index\s*:/i.test(normalized);
+  if (hasOverlayPosition && hasZIndex) {
+    rejected.push("Overlays with z-index are not allowed.");
+    return true;
+  }
+  return false;
+}
+
+function validateRuleBody(body: string, rejected: string[]): boolean {
+  return rejectUnsafeDeclarations(body, rejected);
+}
+
 export interface CssScopeResult {
   css: string;
   warnings: string[];
@@ -86,15 +105,7 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
       continue;
     }
 
-    if (/position\s*:\s*fixed/i.test(body) && /z-index/i.test(body)) {
-      rejected.push("Fixed overlays with z-index are not allowed.");
-      continue;
-    }
-
-    if (/position\s*:\s*absolute/i.test(body) && /z-index/i.test(body)) {
-      rejected.push("Absolute overlays with z-index are not allowed.");
-      continue;
-    }
+    if (validateRuleBody(body, rejected)) continue;
 
     const scopedSelector = selector
       .split(",")
@@ -140,11 +151,13 @@ function scopeSelectors(block: string, scopeClass: string, rejected: string[]): 
       rejected.push(`Blocked selector: ${selector}`);
       continue;
     }
+    const body = ruleMatch[2]!.trim();
+    if (validateRuleBody(body, rejected)) continue;
     const scopedSelector = selector
       .split(",")
       .map((s) => `${scopeClass} ${s.trim()}`)
       .join(", ");
-    out.push(`${scopedSelector} { ${ruleMatch[2]!.trim()} }`);
+    out.push(`${scopedSelector} { ${body} }`);
   }
   return out.join("\n");
 }

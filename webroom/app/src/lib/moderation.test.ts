@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createUser } from "./auth";
 import { resetDbForTests } from "./db";
 import {
@@ -13,10 +13,27 @@ import {
 import { fileReport } from "./reports";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
-process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
+
+const originalAutoSeed = process.env.WEBROOM_AUTO_MODERATOR_SEED;
+const originalModeratorHandle = process.env.WEBROOM_MODERATOR_HANDLE;
 
 beforeEach(() => {
   resetDbForTests();
+  process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
+  delete process.env.WEBROOM_MODERATOR_HANDLE;
+});
+
+afterEach(() => {
+  if (originalAutoSeed === undefined) {
+    delete process.env.WEBROOM_AUTO_MODERATOR_SEED;
+  } else {
+    process.env.WEBROOM_AUTO_MODERATOR_SEED = originalAutoSeed;
+  }
+  if (originalModeratorHandle === undefined) {
+    delete process.env.WEBROOM_MODERATOR_HANDLE;
+  } else {
+    process.env.WEBROOM_MODERATOR_HANDLE = originalModeratorHandle;
+  }
 });
 
 describe("ensureModeratorSeed", () => {
@@ -44,8 +61,6 @@ describe("ensureModeratorSeed", () => {
     process.env.WEBROOM_MODERATOR_HANDLE = "modtarget";
     ensureModeratorSeed();
     expect(isModerator(target.id)).toBe(true);
-    delete process.env.WEBROOM_MODERATOR_HANDLE;
-    process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
   });
 
   it("skips auto-seed when neither env is set", () => {
@@ -54,7 +69,6 @@ describe("ensureModeratorSeed", () => {
     const a = createUser("voidarcade", "correct-horse-battery");
     ensureModeratorSeed();
     expect(isModerator(a.id)).toBe(false);
-    process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
   });
 });
 

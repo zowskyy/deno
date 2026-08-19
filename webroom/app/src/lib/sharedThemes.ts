@@ -210,10 +210,13 @@ export function reviewThemeReport(
   moderatorId: string,
   status: "reviewed" | "dismissed",
   note: string,
-): void {
+): boolean {
   const db = getDb();
   const now = new Date().toISOString();
-  db.prepare(
-    "UPDATE theme_reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
-  ).run(status, moderatorId, note.trim() || null, now, reportId);
+  const result = db
+    .prepare(
+      "UPDATE theme_reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
+    )
+    .run(status, moderatorId, note.trim() || null, now, reportId);
+  return result.changes > 0;
 }
