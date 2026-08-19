@@ -95,10 +95,26 @@ between "here's an idea" and "here's a working thing."
   `deployment/DEPLOYMENT.md` for what exists.
 - Long-term direction: open-source, community-driven (r/openwrt,
   homelab audience first), aimed at eventually supporting supervised
-  automatic QoS tuning. See prior planning notes in conversation history
-  for the fuller roadmap if picking this back up.
+  automatic QoS tuning. See the roadmap artifact / prior planning notes
+  in conversation history for the fuller three-phase plan if picking
+  this back up.
 - The real-world four-condition CAKE test (on the user's own router) is
   **deferred, not blocking** — it needs physical access to their home
   network, which isn't always available. Don't reintroduce it as a
   requirement; offer it as an optional next step when the user has Wi-Fi
   access and bandwidth for it.
+- **Privacy — decided, not open**: no opt-in trend-sharing, telemetry, or
+  anonymized usage collection, ever. Everything stays strictly local to
+  the user's own gateway. Don't design future features (e.g. a possible
+  Phase 3 cloud dashboard) around collecting data from other users —
+  the cloud view described in Phase 3 must stay opt-in-per-user and
+  local-first, never depend on aggregating anyone else's data.
+- **Phase 3 direction (Wi-Fi diagnostics vs. multi-gateway vs. other)**:
+  deliberately left undecided. That answer comes from what pilot users
+  and the community actually ask for during Phase 1, not from deciding
+  in advance — don't pre-commit to one direction.
+- **Sustainability**: per the global standing principle, keep a
+  long-term funding path (sponsorship/grants/etc.) in view as this
+  project matures, and raise it again once there's a real milestone to
+  point to (a published case study, a proven Phase 2 result) — not
+  before there's something credible to fund.
