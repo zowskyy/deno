@@ -165,3 +165,12 @@ pilot testers see when they clone the repo for its README/install docs).
   locally. `node:sqlite` is still an experimental Node API (tracked
   deliberately — zero native-compile, zero external service dependency
   — not an oversight).
+- **Taylor worker system** — multi-step Webroom work uses specialist
+  agents in `.cursor/agents/taylor-*.md`. Orchestrator (`taylor-orchestrator`)
+  plans waves and file ownership; implementer, auditor, verifier, and
+  product-writer run in tandem with handoff artifacts (migration note,
+  type note, test list, env note). See `.cursor/agents/README.md`.
+  **Permanent out of scope for all workers:** visitor analytics.
+  **Owner-directed post-V1 build scope:** hosted uploads, DMs, feed,
+  recommendations, federation, self-hosting, allowlisted embeds, plugin
+  marketplace, AI page assist — full code, no stubs.
