@@ -15,9 +15,9 @@ export default async function MakePage() {
         Step 1 of 1 · webroom.example/@{viewer.handle}
       </p>
       <h1>What does your corner of the internet feel like?</h1>
-      <p style={{ color: "var(--ink-soft)" }}>
-        Pick a starting mood, add a name and a sentence, choose what belongs on your page, and publish. You can
-        change any of this later in the Studio.
+      <p className="make-lead">
+        Pick a mood, say who you are, choose what belongs — then publish. Get lost decorating in Studio
+        afterward; your imagination is the only limit.
       </p>
       <MakeForm initialDisplayName={stored?.document.identity.displayName ?? viewer.handle} />
     </main>

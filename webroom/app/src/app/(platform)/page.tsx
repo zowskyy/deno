@@ -10,9 +10,9 @@ export default async function HomePage() {
         Webroom
       </p>
       <h1>Make your corner of the internet. Keep it yours.</h1>
-      <p style={{ color: "var(--ink-soft)", fontSize: "1.05rem" }}>
-        A personal-page platform with friend links, guestbooks, badges, and no feed. What does your corner of the
-        internet feel like?
+      <p className="home-lead">
+        A personal-page platform where you get lost in the customization — without getting lost in it.
+        Friend links, guestbooks, shrines, pixel art, themes: your imagination is the only limit.
       </p>
 
       <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", flexWrap: "wrap" }}>

@@ -3,11 +3,14 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { PageRenderer, type TopEightLink } from "@/components/PageRenderer";
+import { PixelArtGridEditor } from "@/components/studio/PixelArtGridEditor";
+import { WonderStrip } from "@/components/studio/WonderStrip";
 import type { FriendSummary } from "@/lib/friends";
 import type { GuestbookEntry } from "@/lib/guestbook";
+import { applyCreativeSpark, applyTemplateMood, TEMPLATE_MOODS, type CreativeSparkId } from "@/lib/creativeSparks";
 import type { PageDocument, PagePartId, PixelArtPiece, StoredPage, TemplateId } from "@/lib/pageDocumentTypes";
 import { profileScopeClass, scopeProfileCss } from "@/lib/cssScope";
-import { getContrastWarnings, TEMPLATE_PRESETS } from "@/lib/pageDocumentTheme";
+import { getContrastWarnings } from "@/lib/pageDocumentTheme";
 import {
   exportPageAction,
   importPageAction,
@@ -23,15 +26,6 @@ import {
 } from "./actions";
 
 const MAX_UNDO = 20;
-
-const TEMPLATE_OPTIONS: { id: TemplateId; label: string }[] = [
-  { id: "soft-web", label: "Soft Web" },
-  { id: "pixel-tavern", label: "Pixel Tavern" },
-  { id: "chrome-angel", label: "Chrome Angel" },
-  { id: "dark-zine", label: "Dark Zine" },
-  { id: "clean-portfolio", label: "Clean Portfolio" },
-  { id: "start-simple", label: "Start Simple" },
-];
 
 const PART_LABELS: Record<PagePartId, string> = {
   identity: "Identity",
@@ -290,8 +284,10 @@ export function StudioClient({
       <header className="studio-header">
         <div>
           <p className="studio-kicker mono">Studio</p>
-          <h1>Shape your page</h1>
-          <p className="studio-subtitle">@{handle} · edits preview live on the right</p>
+          <h1>Decorate your corner</h1>
+          <p className="studio-subtitle">
+            @{handle} · imagination is the only limit — the preview updates as you play
+          </p>
         </div>
         <div className="studio-header-actions">
           <button type="button" className="btn secondary" onClick={undo} disabled={undoStack.length === 0 || pending}>
@@ -311,6 +307,14 @@ export function StudioClient({
           {error ?? message}
         </div>
       )}
+
+      <WonderStrip
+        disabled={pending}
+        onSpark={(id: CreativeSparkId) => {
+          commitEdit(applyCreativeSpark(id, document));
+          setMessage("Spark applied — keep going.");
+        }}
+      />
 
       <div className="studio-body">
         <div className="studio-panel">
@@ -467,44 +471,46 @@ function LookTab({
   const [themeTags, setThemeTags] = useState("");
 
   const setTemplate = (template: TemplateId) => {
-    const preset = TEMPLATE_PRESETS[template];
-    onChange({
-      ...doc,
-      theme: {
-        ...doc.theme,
-        template,
-        accent: preset.accent,
-        background: preset.background,
-        fontStyle: preset.fontStyle,
-      },
-    });
+    onChange(applyTemplateMood(doc, template));
+  };
+
+  const surpriseColors = () => {
+    onChange(applyCreativeSpark("surprise-colors", doc));
   };
 
   return (
     <>
       <h2 className="studio-section-title">Look</h2>
       <p className="studio-hint">
-        Template, colors, spacing, and type style. Browse community themes in the{" "}
+        Pick a mood, nudge the colors, make it yours. Community themes live in the{" "}
         <Link href="/explore/themes">theme gallery</Link>.
       </p>
 
       <fieldset className="studio-fieldset">
         <legend>Template</legend>
-        <div className="studio-template-grid">
-          {TEMPLATE_OPTIONS.map((t) => (
+        <div className="studio-template-grid template-mood-grid">
+          {TEMPLATE_MOODS.map((t) => (
             <button
               key={t.id}
               type="button"
-              className={doc.theme.template === t.id ? "studio-template-card active" : "studio-template-card"}
+              className={doc.theme.template === t.id ? "studio-template-card template-mood-card active" : "studio-template-card template-mood-card"}
               onClick={() => setTemplate(t.id)}
             >
-              {t.label}
+              <span className="template-mood-swatches" aria-hidden="true">
+                <span style={{ background: t.background }} />
+                <span style={{ background: t.accent }} />
+              </span>
+              <span className="template-mood-name">{t.label}</span>
+              <span className="template-mood-tagline">{t.tagline}</span>
             </button>
           ))}
         </div>
       </fieldset>
 
       <div className="studio-color-row">
+        <button type="button" className="btn secondary wonder-surprise-btn" onClick={surpriseColors}>
+          Surprise me
+        </button>
         <label className="field">
           <span>Accent</span>
           <input
@@ -1555,51 +1561,6 @@ function ContentTab({
         </ul>
       </fieldset>
     </>
-  );
-}
-
-function PixelArtGridEditor({
-  piece,
-  onChange,
-}: {
-  piece: PixelArtPiece;
-  onChange: (pixels: PixelArtPiece["pixels"]) => void;
-}) {
-  const setPixel = (index: number, color: string) => {
-    const next = [...piece.pixels];
-    next[index] = color === "transparent" ? "transparent" : color;
-    onChange(next as PixelArtPiece["pixels"]);
-  };
-
-  return (
-    <div
-      className="studio-pixel-grid"
-      style={{ gridTemplateColumns: `repeat(${piece.width}, 1fr)` }}
-      role="group"
-      aria-label="Pixel grid editor"
-    >
-      {piece.pixels.map((color, index) => (
-        <label key={index} className="studio-pixel-cell" title={`Pixel ${index + 1}`}>
-          <input
-            type="color"
-            value={color === "transparent" ? "#000000" : color}
-            onChange={(e) => setPixel(index, e.target.value)}
-          />
-          <button
-            type="button"
-            className="studio-pixel-clear"
-            aria-label={`Clear pixel ${index + 1}`}
-            onClick={() => setPixel(index, "transparent")}
-          >
-            ×
-          </button>
-          <span
-            className="studio-pixel-preview"
-            style={{ background: color === "transparent" ? "transparent" : color }}
-          />
-        </label>
-      ))}
-    </div>
   );
 }
 
