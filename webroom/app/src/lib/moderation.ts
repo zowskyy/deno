@@ -1,0 +1,110 @@
+import { randomUUID } from "node:crypto";
+import { getDb } from "./db";
+import { listOpenReports, type ReportSummary } from "./reports";
+
+export type { ReportSummary };
+
+export { listOpenReports };
+
+export function ensureModeratorSeed(): void {
+  const db = getDb();
+  const existing = db.prepare("SELECT id FROM users WHERE is_moderator = 1 LIMIT 1").get();
+  if (existing) return;
+  const first = db.prepare("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").get() as { id: string } | undefined;
+  if (!first) return;
+  db.prepare("UPDATE users SET is_moderator = 1 WHERE id = ?").run(first.id);
+}
+
+export function reviewReport(
+  reportId: string,
+  moderatorId: string,
+  status: "reviewed" | "dismissed",
+  note: string,
+): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ?",
+  ).run(status, moderatorId, note.trim() || null, now, reportId);
+
+  const report = db.prepare("SELECT reported_handle FROM reports WHERE id = ?").get(reportId) as
+    | { reported_handle: string }
+    | undefined;
+  logModeratorAction(moderatorId, `report_${status}`, report?.reported_handle ?? null, note);
+}
+
+export function logModeratorAction(
+  moderatorId: string,
+  action: string,
+  targetHandle: string | null,
+  detail: string,
+): void {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO moderator_logs (id, moderator_id, action, target_handle, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(randomUUID(), moderatorId, action, targetHandle, detail, new Date().toISOString());
+}
+
+export function listModeratorLogs(limit = 50): {
+  action: string;
+  targetHandle: string | null;
+  detail: string;
+  createdAt: string;
+  moderatorHandle: string;
+}[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ml.action, ml.target_handle, ml.detail, ml.created_at, u.handle as moderator_handle
+       FROM moderator_logs ml
+       JOIN users u ON u.id = ml.moderator_id
+       ORDER BY ml.created_at DESC
+       LIMIT ?`,
+    )
+    .all(limit) as {
+    action: string;
+    target_handle: string | null;
+    detail: string;
+    created_at: string;
+    moderator_handle: string;
+  }[];
+
+  return rows.map((r) => ({
+    action: r.action,
+    targetHandle: r.target_handle,
+    detail: r.detail,
+    createdAt: r.created_at,
+    moderatorHandle: r.moderator_handle,
+  }));
+}
+
+export function isModerator(userId: string): boolean {
+  const db = getDb();
+  const row = db.prepare("SELECT is_moderator FROM users WHERE id = ?").get(userId) as
+    | { is_moderator: number }
+    | undefined;
+  return !!row?.is_moderator;
+}
+
+export interface ModerationUserTarget {
+  id: string;
+  handle: string;
+  isBlockedPlatform: boolean;
+}
+
+export function findUserForModeration(rawHandle: string): ModerationUserTarget | null {
+  const handle = rawHandle.trim().toLowerCase();
+  const db = getDb();
+  const row = db
+    .prepare("SELECT id, handle, is_blocked_platform FROM users WHERE handle_lower = ?")
+    .get(handle) as { id: string; handle: string; is_blocked_platform: number } | undefined;
+  if (!row) return null;
+  return { id: row.id, handle: row.handle, isBlockedPlatform: !!row.is_blocked_platform };
+}
+
+export function setPlatformBlock(userId: string, blocked: boolean, moderatorId: string): void {
+  const db = getDb();
+  db.prepare("UPDATE users SET is_blocked_platform = ? WHERE id = ?").run(blocked ? 1 : 0, userId);
+  const user = db.prepare("SELECT handle FROM users WHERE id = ?").get(userId) as { handle: string } | undefined;
+  logModeratorAction(moderatorId, blocked ? "platform_block" : "platform_unblock", user?.handle ?? null, "");
+}

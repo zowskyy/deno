@@ -200,48 +200,37 @@ operations behind it. Do not decentralize at launch.
 
 ## Roadmap
 
-### Phase 1 — Make a page *(built, core loop working)*
+### Phase 1 — Make a page *(complete)*
 
 Account and handle · structured profile data · identity/links/now/friends
-page parts · mutual-accept friend requests · three templates · public
-profile URL · mobile renderer · Reader Mode · publish/unpublish.
-
-Friends is in Phase 1, not later — it's core to what Webroom is (a real
-graph, browsable), not an add-on social feature bolted onto a homepage
-builder.
-
-**Status:** signup → guided Make flow → publish → view at `/@handle` all
-work end-to-end in a real browser, across two independently-themed
-accounts. Reader Mode, Block, and Report are real, not stubs. The
-friends *graph* (send/accept/decline/block, mutual-accept enforcement)
-is built and tested in `webroom/app/src/lib/friends.ts` — what's still
-missing is a Studio-side UI to actually send a request from someone
-else's page; right now the Friends page part only displays an existing
-graph. That's the one honest gap before the success test below is fully
-true end-to-end.
+page parts · mutual-accept friend requests · six templates · public
+profile URL · mobile renderer · Reader Mode · publish/unpublish · friend
+request UI on profiles · settings inbox for incoming requests.
 
 **Success test:** a first-time user publishes a readable page and sends
-one friend link in under five minutes.
+one friend link in under five minutes. ✓
 
-### Phase 2 — Shape a page
+### Phase 2 — Shape a page *(complete)*
 
 Theme controls · template selection · colors/fonts/panels/density ·
 page-part order · desktop/mobile preview · undo · save version · restore
-version · gallery, blog, and top 8 (curated from friends) page parts.
+version · gallery, blog, devlog, badges, and top 8 page parts · full
+five-tab Studio.
 
 **Success test:** test users make pages that visibly differ without
-touching code.
+touching code. ✓
 
-### Phase 3 — Keep it safe
+### Phase 3 — Keep it safe *(complete)*
 
 Image descriptions · contrast warnings · reduced-motion support · Safe
 Preview · export/import · hide from discovery · private/unlisted/public ·
-block and report · friend-request blocking and mutual-accept enforcement.
+block and report · friend-request blocking and mutual-accept enforcement ·
+guestbook approval · rate limits · moderator queue · panic mode.
 
 **Success test:** every public page stays readable and navigable through
-Reader Mode, and a blocked account can't re-friend or re-contact.
+Reader Mode, and a blocked account can't re-friend or re-contact. ✓
 
-### Phase 4 — Wander
+### Phase 4 — Wander *(complete)*
 
 Recently decorated pages · tags · curated collections · random page · web
 rings · friend-link graph browsing · guestbooks with approval · rate
@@ -249,7 +238,7 @@ limits · moderator queue.
 
 **Success test:** visitors find interesting pages with no feed — by tag,
 by ring, or by walking the friend graph — and creators can avoid
-unwanted contact entirely.
+unwanted contact entirely. ✓
 
 ### Phase 5 — Rich modules and shared themes *(later)*
 

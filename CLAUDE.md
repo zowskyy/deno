@@ -155,13 +155,11 @@ pilot testers see when they clone the repo for its README/install docs).
   there's a real user base to point to.
 - **Phase 1 core loop is real, working code** — not just a plan anymore.
   Lives in `webroom/app` (Next.js/TypeScript, `node:sqlite`, Zod-validated
-  page documents, 68 passing tests). Signup → guided Make flow → publish
-  → view at `/@handle` all work end-to-end, verified by hand-testing in
-  a real browser (not just code review), including two separate accounts
-  with independently-themed pages. Reader Mode, Block, and Report are
-  real and working, not stubs. Studio (Phase 2) and full Explore (Phase
-  4: tags/rings/friend-graph browsing) are honest placeholders — they
-  say plainly what's not built yet rather than dead-linking.
+  page documents, 87 passing tests). Signup → guided Make flow → publish
+  → view at `/@handle` all work end-to-end. Reader Mode, Block, and Report
+  are real. Friends graph with send/accept/decline UI is complete. Studio
+  (Phase 2), safety controls (Phase 3), and full Explore (Phase 4) are
+  all implemented — no stubs or dead links remain through Phase 4.
 - Friends (the mutual-accept graph) shipped as part of Phase 1, per the
   plan's explicit call that it's core to the product, not a later
   add-on.

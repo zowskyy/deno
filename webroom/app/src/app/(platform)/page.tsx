@@ -36,6 +36,35 @@ export default async function HomePage() {
           </>
         )}
       </div>
+
+      <section className="home-explore" aria-label="Explore highlights">
+        <h2 style={{ marginTop: "2.5rem" }}>Wander without a feed</h2>
+        <p style={{ color: "var(--ink-soft)", fontSize: "0.95rem", marginBottom: "1rem" }}>
+          Explore is live — tags, templates, web rings, collections, friend-graph walks, search, and a surprise button.
+        </p>
+        <ul className="home-explore-list">
+          <li>
+            <Link href="/explore">Recently redecorated</Link>
+            <span className="home-explore-desc">See what people just published</span>
+          </li>
+          <li>
+            <Link href="/explore">Browse by tag &amp; feeling</Link>
+            <span className="home-explore-desc">Follow a tag or template mood</span>
+          </li>
+          <li>
+            <Link href="/explore/random">Surprise me</Link>
+            <span className="home-explore-desc">Land on a random public page</span>
+          </li>
+          <li>
+            <Link href="/explore">Web rings &amp; collections</Link>
+            <span className="home-explore-desc">Curated lists and classic webring hops</span>
+          </li>
+          <li>
+            <Link href="/explore">Friend graph walks</Link>
+            <span className="home-explore-desc">Follow friend links one or two hops out</span>
+          </li>
+        </ul>
+      </section>
     </main>
   );
 }

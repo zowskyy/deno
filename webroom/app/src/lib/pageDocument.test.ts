@@ -3,6 +3,7 @@ import {
   defaultPageDocument,
   getPageDocument,
   listVersions,
+  migrateDocument,
   parsePageDocument,
   PageDocumentValidationError,
   restoreVersion,
@@ -10,6 +11,7 @@ import {
   setPublished,
   setVisibility,
   VersionNotFoundError,
+  CURRENT_SCHEMA_VERSION,
 } from "./pageDocument";
 import { createUser } from "./auth";
 import { resetDbForTests } from "./db";
@@ -21,13 +23,14 @@ beforeEach(() => {
 });
 
 describe("parsePageDocument", () => {
-  it("accepts a well-formed document", () => {
+  it("accepts a well-formed v2 document", () => {
     const doc = defaultPageDocument("Void Arcade");
+    expect(doc.version).toBe(CURRENT_SCHEMA_VERSION);
     expect(() => parsePageDocument(doc)).not.toThrow();
   });
 
   it("rejects a document with the wrong schema version", () => {
-    const doc = { ...defaultPageDocument("Void"), version: 2 };
+    const doc = { ...defaultPageDocument("Void"), version: 99 };
     expect(() => parsePageDocument(doc)).toThrow(PageDocumentValidationError);
   });
 
@@ -76,6 +79,27 @@ describe("parsePageDocument", () => {
       const err = e as PageDocumentValidationError;
       expect(err.issues.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("migrateDocument", () => {
+  it("upgrades v1 documents to v2 without losing identity and links", () => {
+    const v1 = {
+      version: 1,
+      identity: { displayName: "Legacy Page", bio: "still here" },
+      theme: { template: "soft-web", accent: "#e0526b", background: "#f6ecec", density: "cozy" },
+      pageParts: ["identity", "links"],
+      links: [{ label: "Home", url: "https://example.com" }],
+      now: "building things",
+    };
+    const migrated = migrateDocument(v1);
+    expect(migrated.version).toBe(2);
+    expect(migrated.identity.displayName).toBe("Legacy Page");
+    expect(migrated.links).toEqual([{ label: "Home", url: "https://example.com" }]);
+    expect(migrated.now).toBe("building things");
+    expect(migrated.theme.fontStyle).toBe("sans");
+    expect(migrated.guestbook.enabled).toBe(true);
+    expect(migrated.blog).toEqual([]);
   });
 });
 

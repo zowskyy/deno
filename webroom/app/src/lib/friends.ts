@@ -155,3 +155,57 @@ export function unblockUser(blockerId: string, blockedId: string): void {
   const db = getDb();
   db.prepare("DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?").run(blockerId, blockedId);
 }
+
+export type FriendRelationship =
+  | { status: "none" }
+  | { status: "pending_sent"; requestId: string }
+  | { status: "pending_received"; requestId: string }
+  | { status: "accepted"; requestId: string };
+
+export function getFriendRelationship(viewerId: string, otherUserId: string): FriendRelationship {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT id, status, requester_id FROM friend_links
+       WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)`,
+    )
+    .get(viewerId, otherUserId, otherUserId, viewerId) as
+    | { id: string; status: string; requester_id: string }
+    | undefined;
+
+  if (!row) return { status: "none" };
+  if (row.status === "accepted") return { status: "accepted", requestId: row.id };
+  if (row.requester_id === viewerId) return { status: "pending_sent", requestId: row.id };
+  return { status: "pending_received", requestId: row.id };
+}
+
+export function listBlockedUsers(blockerId: string): { userId: string; handle: string }[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT u.id as user_id, u.handle
+       FROM blocks b JOIN users u ON u.id = b.blocked_id
+       WHERE b.blocker_id = ?
+       ORDER BY b.created_at DESC`,
+    )
+    .all(blockerId) as { user_id: string; handle: string }[];
+  return rows.map((r) => ({ userId: r.user_id, handle: r.handle }));
+}
+
+/** Public friends of a user, respecting visibility — only shows friends with public published pages. */
+export function listPublicFriends(userId: string, viewerId: string | null): FriendSummary[] {
+  const friends = listFriends(userId);
+  const db = getDb();
+  return friends.filter((f) => {
+    if (viewerId && hasBlockRelationship(viewerId, f.userId)) return false;
+    const row = db
+      .prepare(
+        `SELECT visibility, is_published, hidden_from_discovery FROM page_documents WHERE user_id = ?`,
+      )
+      .get(f.userId) as { visibility: string; is_published: number; hidden_from_discovery: number } | undefined;
+    if (!row || !row.is_published) return false;
+    if (row.visibility === "private") return viewerId === f.userId;
+    if (row.visibility === "unlisted") return viewerId === f.userId || viewerId === userId;
+    return !row.hidden_from_discovery || viewerId === f.userId;
+  });
+}
