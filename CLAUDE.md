@@ -145,21 +145,16 @@ pilot testers see when they clone the repo for its README/install docs).
   of `webroom/PLAN.md` for the concrete pattern-by-pattern mapping. Keep
   applying that same discipline to Webroom's build, not a lighter
   version of it.
-- **Privacy (visitor analytics)**: deliberately left open — leaning
-  toward none, or at most a private, un-exported view count, given the
-  product's anti-surveillance/anti-feed ethos, but not decided yet.
-  Decide before Phase 1 ships, don't let it get added quietly later.
+- **Privacy (visitor analytics) — decided: none.** No page views, referrers,
+  or visitor tracking for creators. Aligns with the anti-surveillance ethos.
 - **Sustainability**: ongoing standing consideration, not solved now —
   same principle as gateway-probe. A hosted platform with human
   moderation has real running costs; raise funding path again once
   there's a real user base to point to.
-- **Phase 1 core loop is real, working code** — not just a plan anymore.
-  Lives in `webroom/app` (Next.js/TypeScript, `node:sqlite`, Zod-validated
-  page documents, 87 passing tests). Signup → guided Make flow → publish
-  → view at `/@handle` all work end-to-end. Reader Mode, Block, and Report
-  are real. Friends graph with send/accept/decline UI is complete. Studio
-  (Phase 2), safety controls (Phase 3), and full Explore (Phase 4) are
-  all implemented — no stubs or dead links remain through Phase 4.
+- **Webroom Phases 1–5 are complete** in `webroom/app` (Next.js/TypeScript,
+  `node:sqlite`, Zod-validated page documents, module registry, scoped
+  custom CSS, theme gallery). Signup → Make → Studio → publish → Explore
+  all work end-to-end with no stubs or dead links through Phase 5.
 - Friends (the mutual-accept graph) shipped as part of Phase 1, per the
   plan's explicit call that it's core to the product, not a later
   add-on.

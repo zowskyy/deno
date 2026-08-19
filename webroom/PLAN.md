@@ -240,15 +240,16 @@ limits · moderator queue.
 by ring, or by walking the friend graph — and creators can avoid
 unwanted contact entirely. ✓
 
-### Phase 5 — Rich modules and shared themes *(later)*
+### Phase 5 — Rich modules and shared themes *(complete)*
 
-Shrine, Playlist (upload-based, see Safety Rules), Pixel Art, and
+Shrine, Playlist (outbound links — no autoplay embeds), Pixel Art, and
 Mini-page modules · theme gallery · install and fork a theme ·
-attribution · theme version history · theme reporting.
+attribution · theme version history · theme reporting · module registry
+pattern · scoped custom CSS.
 
 **Success test:** someone builds a shrine or pixel-art piece, and someone
 else reuses and remixes a theme, without losing creator credit or
-accessibility guarantees.
+accessibility guarantees. ✓
 
 ## What V1 excludes
 
@@ -266,11 +267,9 @@ social or creator feature.
 Two real product calls, surfaced now rather than guessed at, to be
 decided when there's enough real signal — not before:
 
-- **Visitor privacy.** Do creators get any visit analytics (page views,
-  referrers) for their own page? The product's whole ethos is
-  anti-surveillance and anti-feed — leaning toward none, or at most a
-  private, un-exported view count, seems consistent. Worth deciding
-  before Phase 1 ships, not added quietly later.
+- **Visitor privacy — decided: none.** Creators do not get page views,
+  referrers, or any visitor analytics. The product's anti-surveillance
+  ethos is the reason; this is not revisited quietly later.
 - **Sustainability — ongoing, not one-time.** A hosted platform with
   human moderation has real running costs. A funding path (subscription
   for extra storage/themes, donations, sponsorship) stays in view

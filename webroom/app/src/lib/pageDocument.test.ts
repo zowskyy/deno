@@ -83,7 +83,7 @@ describe("parsePageDocument", () => {
 });
 
 describe("migrateDocument", () => {
-  it("upgrades v1 documents to v2 without losing identity and links", () => {
+  it("upgrades v1 documents to v3 without losing identity and links", () => {
     const v1 = {
       version: 1,
       identity: { displayName: "Legacy Page", bio: "still here" },
@@ -93,13 +93,45 @@ describe("migrateDocument", () => {
       now: "building things",
     };
     const migrated = migrateDocument(v1);
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(CURRENT_SCHEMA_VERSION);
     expect(migrated.identity.displayName).toBe("Legacy Page");
     expect(migrated.links).toEqual([{ label: "Home", url: "https://example.com" }]);
     expect(migrated.now).toBe("building things");
     expect(migrated.theme.fontStyle).toBe("sans");
+    expect(migrated.theme.customCss).toBe("");
     expect(migrated.guestbook.enabled).toBe(true);
-    expect(migrated.blog).toEqual([]);
+    expect(migrated.shrines).toEqual([]);
+    expect(migrated.playlist).toEqual([]);
+  });
+
+  it("upgrades v2 documents to v3 with Phase 5 fields", () => {
+    const v2 = {
+      version: 2,
+      identity: { displayName: "V2 Page", bio: "" },
+      theme: {
+        template: "start-simple",
+        accent: "#e0526b",
+        background: "#f1ede9",
+        density: "comfortable",
+        fontStyle: "sans",
+        reduceMotion: false,
+      },
+      pageParts: ["identity"],
+      links: [],
+      now: "",
+      gallery: [],
+      blog: [],
+      devlog: [],
+      badges: [],
+      topEight: [],
+      tags: [],
+      guestbook: { enabled: true, requireApproval: true },
+      access: { altTextReminder: true, contrastWarningsEnabled: true },
+    };
+    const migrated = migrateDocument(v2);
+    expect(migrated.version).toBe(3);
+    expect(migrated.miniPages).toEqual([]);
+    expect(migrated.theme.customCssEnabled).toBe(false);
   });
 });
 

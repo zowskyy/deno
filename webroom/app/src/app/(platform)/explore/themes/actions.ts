@@ -56,14 +56,15 @@ export async function forkThemeAction(themeId: string): Promise<void> {
   try {
     const key = await rateLimitActorKey("theme-fork", viewer.id);
     checkRateLimit(key, 10);
-    const newId = forkTheme(viewer.id, viewer.handle, themeId);
-    revalidateThemePaths(themeId);
-    revalidateThemePaths(newId);
-    redirect(`/explore/themes/${newId}`);
   } catch (e) {
     if (e instanceof RateLimitError) throw e;
     throw e;
   }
+
+  const newId = forkTheme(viewer.id, viewer.handle, themeId);
+  revalidateThemePaths(themeId);
+  revalidateThemePaths(newId);
+  redirect(`/explore/themes/${newId}`);
 }
 
 export async function reportThemeAction(
