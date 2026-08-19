@@ -9,6 +9,7 @@ import urllib.request
 import pytest
 
 from probe.api import _connect_readonly, create_server
+from probe.device_history import diff_and_save, open_device_store
 from probe.store import get_report, open_store, save_report
 
 
@@ -20,6 +21,19 @@ def running_server(tmp_path):
     thread.start()
     port = server.server_address[1]
     yield f"http://127.0.0.1:{port}", db_path
+    server.shutdown()
+    server.server_close()
+
+
+@pytest.fixture
+def running_server_with_devices(tmp_path):
+    db_path = tmp_path / "events.db"
+    device_db_path = tmp_path / "devices.db"
+    server = create_server(str(db_path), host="127.0.0.1", port=0, device_db_path=str(device_db_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    yield f"http://127.0.0.1:{port}", device_db_path
     server.shutdown()
     server.server_close()
 
@@ -199,3 +213,57 @@ class TestDefaultBindAddress:
     def test_create_server_defaults_to_localhost(self, tmp_path):
         from probe.api import DEFAULT_HOST
         assert DEFAULT_HOST == "127.0.0.1"
+
+
+class TestDevicesEndpoint:
+    def test_not_configured_when_no_device_store_given(self, running_server):
+        base_url, _ = running_server  # plain fixture: no device_db_path passed
+        status, body = _get(base_url + "/api/devices")
+        assert status == 200
+        assert body["configured"] is False
+        assert body["devices"] == []
+
+    def test_configured_but_unavailable_before_any_scan(self, running_server_with_devices):
+        base_url, _ = running_server_with_devices
+        status, body = _get(base_url + "/api/devices")
+        assert status == 200
+        assert body["configured"] is True
+        assert body["available"] is False
+        assert body["devices"] == []
+
+    def test_reflects_saved_device_baseline(self, running_server_with_devices):
+        base_url, device_db_path = running_server_with_devices
+        conn = open_device_store(device_db_path)
+        diff_and_save(
+            conn,
+            [{"ip": "192.168.1.5", "mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}],
+            "2026-01-01T00:00:00Z",
+        )
+        conn.close()
+
+        status, body = _get(base_url + "/api/devices")
+        assert status == 200
+        assert body["configured"] is True
+        assert body["available"] is True
+        assert body["device_count"] == 1
+        assert body["devices"][0]["mac"] == "3C:5A:B4:12:34:56"
+        assert body["devices"][0]["vendor"] == "Apple"
+
+    def test_reports_endpoint_still_works_alongside_devices(self, running_server_with_devices):
+        # Regression guard: adding /api/devices must not disturb the
+        # existing report-store handling in the same do_GET.
+        base_url, _ = running_server_with_devices
+        status, body = _get(base_url + "/api/reports")
+        assert status == 200
+        assert body["reports"] == []
+
+    def test_devices_endpoint_never_writes_through_readonly_connection(self, running_server_with_devices):
+        # The device store doesn't exist yet on disk at all here, so if the
+        # handler tried to write (e.g. accidentally calling open_device_store
+        # instead of a read-only connect), this would either create the file
+        # or raise something other than the expected graceful 200 response.
+        base_url, device_db_path = running_server_with_devices
+        status, body = _get(base_url + "/api/devices")
+        assert status == 200
+        assert body["available"] is False
+        assert not device_db_path.exists()
