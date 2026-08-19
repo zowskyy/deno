@@ -54,6 +54,23 @@ command -v python3 >/dev/null 2>&1 || { echo "Installing python3-base..."; opkg 
 command -v iperf3 >/dev/null 2>&1  || { echo "Installing iperf3...";       opkg update && opkg install iperf3; }
 command -v uci >/dev/null 2>&1     || { echo "ERROR: uci not found — is this really an OpenWrt router?"; exit 1; }
 
+# opkg install can fail silently on a router with no free space or a flaky
+# WAN connection (plausible — connectivity trouble is often exactly why
+# someone is running this tool) — verify each install actually landed
+# instead of blundering ahead and hitting a much more confusing failure
+# several minutes into the test, possibly mid-way through with SQM
+# already disabled.
+command -v python3 >/dev/null 2>&1 || {
+  echo "ERROR: python3 still not found after attempting to install python3-base." >&2
+  echo "Check opkg has a working network connection and enough free space (df -h /overlay)." >&2
+  exit 1
+}
+command -v iperf3 >/dev/null 2>&1 || {
+  echo "ERROR: iperf3 still not found after attempting to install it." >&2
+  echo "Check opkg has a working network connection and enough free space (df -h /overlay)." >&2
+  exit 1
+}
+
 if [ ! -d "$PROBE_DIR/probe" ]; then
   echo "=== Fetching gateway-probe source into $PROBE_DIR ==="
   mkdir -p "$PROBE_DIR"
@@ -70,6 +87,33 @@ if [ ! -d "probe" ]; then
   exit 1
 fi
 mkdir -p "$RESULTS_DIR"
+
+# Preflight-check the iperf3 server BEFORE committing to the full ~7-minute
+# run: a bad/unreachable server would otherwise only be discovered at the
+# very end, after all 12 tests have run, as a wall of "invalid" results
+# with no early warning.
+echo "=== Testing iperf3 server reachability ==="
+if ! iperf3 -c "$IPERF_SERVER" -t 1 >/tmp/gateway-probe-iperf-preflight.log 2>&1; then
+  echo "ERROR: could not reach iperf3 server '$IPERF_SERVER'." >&2
+  echo "" >&2
+  echo "Running the full test now would fail the same way on every loaded" >&2
+  echo "condition, wasting ~7 minutes before telling you at the end." >&2
+  echo "" >&2
+  echo "Common causes:" >&2
+  echo "  - The server address is wrong, or it isn't running iperf3 right now" >&2
+  echo "  - A firewall (yours or theirs) is blocking port 5201" >&2
+  echo "  - The server is LAN-only and not actually reachable over the WAN" >&2
+  echo "" >&2
+  echo "iperf3's own error:" >&2
+  sed 's/^/  /' /tmp/gateway-probe-iperf-preflight.log >&2
+  echo "" >&2
+  echo "Fix the server (or pick a different one) and re-run." >&2
+  rm -f /tmp/gateway-probe-iperf-preflight.log
+  exit 1
+fi
+rm -f /tmp/gateway-probe-iperf-preflight.log
+echo "iperf3 server reachable — proceeding."
+echo ""
 
 sqm_off() {
   uci set sqm.@default[0].enabled=0 2>/dev/null || true
