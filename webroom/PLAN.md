@@ -200,7 +200,7 @@ operations behind it. Do not decentralize at launch.
 
 ## Roadmap
 
-### Phase 1 — Make a page *(start here)*
+### Phase 1 — Make a page *(built, core loop working)*
 
 Account and handle · structured profile data · identity/links/now/friends
 page parts · mutual-accept friend requests · three templates · public
@@ -209,6 +209,16 @@ profile URL · mobile renderer · Reader Mode · publish/unpublish.
 Friends is in Phase 1, not later — it's core to what Webroom is (a real
 graph, browsable), not an add-on social feature bolted onto a homepage
 builder.
+
+**Status:** signup → guided Make flow → publish → view at `/@handle` all
+work end-to-end in a real browser, across two independently-themed
+accounts. Reader Mode, Block, and Report are real, not stubs. The
+friends *graph* (send/accept/decline/block, mutual-accept enforcement)
+is built and tested in `webroom/app/src/lib/friends.ts` — what's still
+missing is a Studio-side UI to actually send a request from someone
+else's page; right now the Friends page part only displays an existing
+graph. That's the one honest gap before the success test below is fully
+true end-to-end.
 
 **Success test:** a first-time user publishes a readable page and sends
 one friend link in under five minutes.

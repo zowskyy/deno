@@ -153,6 +153,20 @@ pilot testers see when they clone the repo for its README/install docs).
   same principle as gateway-probe. A hosted platform with human
   moderation has real running costs; raise funding path again once
   there's a real user base to point to.
-- Current focus: Phase 1 ("Make a page") per the roadmap in
-  `webroom/PLAN.md` — nothing built yet, this is still at the plan
-  stage.
+- **Phase 1 core loop is real, working code** — not just a plan anymore.
+  Lives in `webroom/app` (Next.js/TypeScript, `node:sqlite`, Zod-validated
+  page documents, 68 passing tests). Signup → guided Make flow → publish
+  → view at `/@handle` all work end-to-end, verified by hand-testing in
+  a real browser (not just code review), including two separate accounts
+  with independently-themed pages. Reader Mode, Block, and Report are
+  real and working, not stubs. Studio (Phase 2) and full Explore (Phase
+  4: tags/rings/friend-graph browsing) are honest placeholders — they
+  say plainly what's not built yet rather than dead-linking.
+- Friends (the mutual-accept graph) shipped as part of Phase 1, per the
+  plan's explicit call that it's core to the product, not a later
+  add-on.
+- Next session picking this up: run `npm install && npm run build` in
+  `webroom/app`, `npm test` for the suite, `npm run start` to run it
+  locally. `node:sqlite` is still an experimental Node API (tracked
+  deliberately — zero native-compile, zero external service dependency
+  — not an oversight).
