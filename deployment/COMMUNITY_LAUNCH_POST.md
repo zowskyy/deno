@@ -1,19 +1,23 @@
 # Community launch post (r/openwrt / OpenWrt forums)
 
-Ready to post once the first real case study (see `CASE_STUDY_TEMPLATE.md`)
-has actual numbers filled in — replace the `[bracketed]` placeholders below
-with that data before posting. Everything else is ready as-is.
+Two versions below. **Post Version A now** — it's honest and ready as-is,
+no placeholders. Swap in Version B once the real four-condition case
+study has actual numbers in it (see `CASE_STUDY_TEMPLATE.md`); it reads
+better once there's real proof to point to, but doesn't have to come
+first.
 
 ---
 
-**Title:** I built a free, read-only tool that measures bufferbloat on your
-OpenWrt gateway and tells you plainly what's wrong — no cloud, no account,
-no telemetry
+## Version A — post this now (tester recruitment, no results yet)
 
-Most of us have heard "enable CAKE, it fixes bufferbloat" a hundred times.
-Fewer of us have actually measured *our own* connection before and after
-to know if it did anything, by how much, or whether our SQM bandwidth
-limit is even close to right.
+**Title:** I built a free, read-only tool that measures bufferbloat on
+your OpenWrt gateway — looking for testers before I publish real
+before/after numbers
+
+Most of us have heard "just enable CAKE, it fixes bufferbloat" a hundred
+times. Fewer of us have actually measured *our own* connection before and
+after to know if it did anything, by how much, or whether the SQM
+bandwidth limit we picked is even close to right.
 
 I got tired of guessing, so I built **gateway-probe** — a small, read-only
 diagnostic tool for OpenWrt and Linux gateways that measures your actual
@@ -45,6 +49,40 @@ history so you can see trends over time. There's also a local dashboard
 own LAN — still nothing leaves your network, it just serves what's
 already stored locally.
 
+**Where I'm at:** the tool itself is built and tested — 285 automated
+tests, including deliberately adversarial ones (corrupt config files,
+dropped SSH sessions mid-test, missing dependencies, bad install paths).
+I'd rather it fail honestly and tell you exactly what went wrong than
+crash or quietly give you a bad answer. I'm about to run the full
+four-condition before/after test (SQM off/on × idle/loaded) on my own
+connection and publish the raw numbers. Before I do, I wanted to open
+this up — if a few people on different ISPs and router hardware run it
+alongside me, we end up with a real first data set instead of just my
+one connection.
+
+**What I'm looking for:** a handful of testers on different ISPs (cable,
+fiber, DSL, cellular/fixed-wireless, Starlink — the weirder the better)
+and different router hardware, willing to install it, run it, and tell
+me what breaks or what's confusing. It's early — I'd rather hear about
+rough edges now than have people quietly bounce off them.
+
+Repo + install docs (both systemd/Linux and OpenWrt procd):
+**https://github.com/zowskyy/deno**
+
+Happy to answer questions about the methodology, the classifier logic, or
+why I made specific design calls (like keeping it read-only by default).
+
+---
+
+## Version B — post once the case study has real numbers
+
+**Title:** I built a free, read-only tool that measures bufferbloat on your
+OpenWrt gateway and tells you plainly what's wrong — no cloud, no account,
+no telemetry
+
+*(Same opening and bullet points as Version A, but replace the "Where I'm
+at" paragraph with:)*
+
 **The proof, not just the pitch:** I ran the full four-condition test
 (SQM off/on × idle/loaded) on my own [ISP] connection through OpenWrt.
 Full raw reports and methodology are in the case study, but the short
@@ -53,14 +91,5 @@ version: loaded latency went from **[X] ms** added delay with SQM off to
 between a video call stuttering under a large upload and not noticing it
 happened.
 
-**What I'm looking for:** a handful of people running different ISPs
-(cable, fiber, DSL, cellular/fixed-wireless, Starlink — the weirder the
-better) and different router hardware, willing to install it, run it,
-and tell me what breaks or what's confusing. It's early — I'd rather hear
-about rough edges now than have people quietly bounce off them.
-
-Repo, install docs (both systemd/Linux and OpenWrt procd), and the full
-case study: **[repo link]**
-
-Happy to answer questions about the methodology, the classifier logic, or
-why I made specific design calls (like keeping it read-only by default).
+Repo, install docs, and the full case study:
+**https://github.com/zowskyy/deno**
