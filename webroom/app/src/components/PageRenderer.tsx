@@ -3,7 +3,7 @@ import type { FriendSummary } from "@/lib/friends";
 import type { GuestbookEntry } from "@/lib/guestbook";
 import { readableTextFor } from "@/lib/color";
 import { profileScopeClass, validateProfileCustomCss } from "@/lib/cssScope";
-import { renderPagePart, type TopEightLink } from "@/lib/moduleRegistry";
+import { renderPagePart, renderPagePlugins, type TopEightLink } from "@/lib/moduleRegistry";
 
 export type { TopEightLink };
 
@@ -64,6 +64,7 @@ export function PageRenderer({
       )}
       {scopedCss && <style>{scopedCss}</style>}
       {document.pageParts.map((partId) => renderPagePart(partId, ctx))}
+      {renderPagePlugins(document)}
       <p className="page-footer mono">@{handle} on Webroom</p>
     </div>
   );

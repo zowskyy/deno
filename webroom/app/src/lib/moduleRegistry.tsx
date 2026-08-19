@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { PageDocument } from "./pageDocumentTypes";
 import type { FriendSummary } from "./friends";
 import type { GuestbookEntry } from "./guestbook";
+import { getAssetPublicUrl } from "./assetUrls";
 
 /** Resolved Top 8 friend link for page rendering. */
 export interface TopEightLink {
@@ -53,6 +54,15 @@ export const PAGE_MODULE_REGISTRY: Record<string, PageModuleDefinition> = {
     description: "Name, bio, and status",
     render: ({ document }) => (
       <section className="page-identity page-part">
+        {document.identity.avatarAssetId && (
+          <img
+            src={getAssetPublicUrl(document.identity.avatarAssetId)}
+            alt=""
+            className="page-avatar"
+            width={96}
+            height={96}
+          />
+        )}
         <h1>{document.identity.displayName}</h1>
         {document.identity.status && <p className="page-status">{document.identity.status}</p>}
         {document.identity.bio && <p className="page-bio">{document.identity.bio}</p>}
@@ -102,7 +112,11 @@ export const PAGE_MODULE_REGISTRY: Record<string, PageModuleDefinition> = {
           <ul className="gallery-grid">
             {document.gallery.map((item) => (
               <li key={item.id} className="gallery-item">
-                <img src={item.url} alt={item.alt} className="gallery-image" />
+                <img
+                  src={item.url ?? getAssetPublicUrl(item.assetId!)}
+                  alt={item.alt}
+                  className="gallery-image"
+                />
                 {item.caption && <p className="gallery-caption">{item.caption}</p>}
               </li>
             ))}
@@ -263,9 +277,13 @@ export const PAGE_MODULE_REGISTRY: Record<string, PageModuleDefinition> = {
             {document.shrines.map((shrine) => (
               <li key={shrine.id} className="shrine-item profile-panel">
                 <h3 className="shrine-title">{shrine.title}</h3>
-                {shrine.imageUrl && (
-                  <img src={shrine.imageUrl} alt={shrine.imageAlt ?? shrine.title} className="shrine-image" />
-                )}
+                {shrine.imageUrl || shrine.imageAssetId ? (
+                  <img
+                    src={shrine.imageUrl ?? getAssetPublicUrl(shrine.imageAssetId!)}
+                    alt={shrine.imageAlt ?? shrine.title}
+                    className="shrine-image"
+                  />
+                ) : null}
                 <p className="shrine-body">{shrine.body}</p>
               </li>
             ))}
@@ -276,18 +294,35 @@ export const PAGE_MODULE_REGISTRY: Record<string, PageModuleDefinition> = {
   playlist: {
     id: "playlist",
     label: "Playlist",
-    description: "Outbound audio links — no autoplay",
+    description: "Hosted audio, links, and allowlisted embeds — no autoplay",
     render: ({ document }) =>
       document.playlist.length === 0 ? null : (
         <section className="page-part page-playlist" aria-label="Playlist">
           <h2 className="part-label">Playlist</h2>
-          <p className="studio-hint page-playlist-note">Links only — tap to listen elsewhere. No autoplay.</p>
+          <p className="studio-hint page-playlist-note">No autoplay — you choose when to play.</p>
           <ol className="playlist-list">
             {document.playlist.map((track, i) => (
-              <li key={track.id}>
-                <a href={track.url} rel="ugc noopener noreferrer" target="_blank">
+              <li key={track.id} className="playlist-item">
+                <span className="playlist-track-title">
                   {i + 1}. {track.title}
-                </a>
+                </span>
+                {track.embed ? (
+                  <iframe
+                    src={track.embed.embedUrl}
+                    title={track.title}
+                    className="playlist-embed"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                    loading="lazy"
+                  />
+                ) : track.assetId ? (
+                  <audio controls preload="none" className="playlist-audio">
+                    <source src={getAssetPublicUrl(track.assetId)} />
+                  </audio>
+                ) : track.url ? (
+                  <a href={track.url} rel="ugc noopener noreferrer" target="_blank">
+                    Open track
+                  </a>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -352,6 +387,56 @@ export const PAGE_MODULE_REGISTRY: Record<string, PageModuleDefinition> = {
       ),
   },
 };
+
+/** Render installed plugin modules from the page document. */
+export function renderPagePlugins(document: PageDocument): ReactNode | null {
+  if (!document.plugins?.length) return null;
+  return (
+    <section className="page-part page-plugins" aria-label="Plugins">
+      <h2 className="part-label">Extras</h2>
+      <ul className="plugin-list">
+        {document.plugins.map((plugin) => (
+          <li key={plugin.id} className="plugin-item profile-panel">
+            {renderPluginInstance(plugin)}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Render one plugin instance by slug. */
+function renderPluginInstance(plugin: { pluginSlug: string; data: Record<string, unknown> }): ReactNode {
+  const data = plugin.data;
+  switch (plugin.pluginSlug) {
+    case "quote-card":
+      return (
+        <blockquote className="plugin-quote">
+          <p>{String(data.quote ?? "")}</p>
+          {data.attribution ? <cite>— {String(data.attribution)}</cite> : null}
+        </blockquote>
+      );
+    case "countdown":
+      return (
+        <div className="plugin-countdown">
+          <strong>{String(data.label ?? "Countdown")}</strong>
+          {data.targetDate ? <p className="mono">{String(data.targetDate)}</p> : null}
+        </div>
+      );
+    case "currently-reading":
+      return (
+        <div className="plugin-reading">
+          <span className="part-label">Currently reading</span>
+          <p>
+            <em>{String(data.title ?? "")}</em>
+            {data.author ? ` by ${String(data.author)}` : ""}
+          </p>
+        </div>
+      );
+    default:
+      return <UnsupportedModule type={plugin.pluginSlug} />;
+  }
+}
 
 /** Render one page part by id, falling back when unknown or failing. */
 export function renderPagePart(partId: string, ctx: PageRenderContext): ReactNode | null {

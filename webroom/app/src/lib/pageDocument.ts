@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { randomUUID } from "node:crypto";
+import { recordFeedEvent } from "./feed";
 import {
   CURRENT_SCHEMA_VERSION,
   PageDocumentSchema,
@@ -64,6 +65,7 @@ export function migrateDocument(input: Record<string, unknown>): PageDocument {
       playlist: [],
       pixelArt: [],
       miniPages: [],
+      plugins: [],
     });
   }
 
@@ -163,8 +165,8 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
   const now = new Date().toISOString();
 
   const existing = db
-    .prepare("SELECT document_json FROM page_documents WHERE user_id = ?")
-    .get(userId) as { document_json: string } | undefined;
+    .prepare("SELECT document_json, is_published FROM page_documents WHERE user_id = ?")
+    .get(userId) as { document_json: string; is_published: number } | undefined;
 
   if (existing) {
     db.prepare(
@@ -176,6 +178,10 @@ export function savePageDocument(userId: string, input: unknown): PageDocument {
       now,
       userId,
     );
+
+    if (existing.is_published) {
+      recordFeedEvent(userId, "page_updated", { at: now });
+    }
   } else {
     db.prepare(
       `INSERT INTO page_documents (user_id, document_json, is_published, visibility, updated_at)
@@ -285,13 +291,19 @@ export function restoreVersion(userId: string, versionId: string): PageDocument 
 /** Set whether a page is publicly visible when published. */
 export function setPublished(userId: string, published: boolean): void {
   const db = getDb();
-  const existing = db.prepare("SELECT user_id FROM page_documents WHERE user_id = ?").get(userId);
+  const existing = db.prepare("SELECT user_id, is_published FROM page_documents WHERE user_id = ?").get(userId) as
+    | { user_id: string; is_published: number }
+    | undefined;
   if (!existing) throw new Error("Cannot publish before a page document exists — save one first.");
+  const now = new Date().toISOString();
   db.prepare("UPDATE page_documents SET is_published = ?, updated_at = ? WHERE user_id = ?").run(
     published ? 1 : 0,
-    new Date().toISOString(),
+    now,
     userId,
   );
+  if (published && !existing.is_published) {
+    recordFeedEvent(userId, "page_published", { at: now });
+  }
 }
 
 /** Set who can access a published page. */

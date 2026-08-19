@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import {
   CURRENT_SCHEMA_VERSION,
   PageDocumentValidationError,
+  parsePageDocument,
   savePageDocument,
   setPublished,
   setVisibility,
@@ -74,5 +75,27 @@ export async function makeFlowAction(_prevState: MakeState, formData: FormData):
   setPublished(viewer.id, true);
   setVisibility(viewer.id, "public");
 
+  redirect(`/@${viewer.handle}`);
+}
+
+/** Save an AI-generated page document and publish it. */
+export async function saveAiPageAction(documentJson: string): Promise<MakeState> {
+  const viewer = await getCurrentUser();
+  if (!viewer) redirect("/login?next=/make");
+
+  try {
+    const document = parsePageDocument(JSON.parse(documentJson) as unknown);
+    savePageDocument(viewer.id, document);
+  } catch (e) {
+    if (e instanceof PageDocumentValidationError) {
+      return { error: "The generated page wasn't quite right — try a different prompt." };
+    }
+    if (e instanceof SyntaxError) {
+      return { error: "Generated page data was invalid." };
+    }
+    throw e;
+  }
+  setPublished(viewer.id, true);
+  setVisibility(viewer.id, "public");
   redirect(`/@${viewer.handle}`);
 }

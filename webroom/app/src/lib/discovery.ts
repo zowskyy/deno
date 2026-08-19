@@ -10,7 +10,7 @@ export interface DiscoverablePage {
 }
 
 /** Extract display metadata from a stored page document JSON blob. */
-function parseDocMeta(documentJson: string): { displayName: string; tags: string[]; template: string } {
+export function parseDocMeta(documentJson: string): { displayName: string; tags: string[]; template: string } {
   try {
     const doc = JSON.parse(documentJson) as {
       identity?: { displayName?: string };

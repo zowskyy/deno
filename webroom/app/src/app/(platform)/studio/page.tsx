@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { listFriends } from "@/lib/friends";
 import { listApprovedGuestbookEntries } from "@/lib/guestbook";
 import { getPageDocument, listVersions } from "@/lib/pageDocument";
+import { listInstalledPlugins } from "@/lib/plugins";
 import { getCurrentUser } from "@/lib/session";
 import { StudioClient } from "./StudioClient";
 
@@ -15,6 +16,7 @@ export default async function StudioPage() {
   const friends = listFriends(viewer.id);
   const versions = listVersions(viewer.id);
   const guestbookEntries = listApprovedGuestbookEntries(viewer.id);
+  const installedPlugins = listInstalledPlugins();
   const workingDocument = stored.draftDocument ?? stored.document;
 
   return (
@@ -30,6 +32,7 @@ export default async function StudioPage() {
       handle={viewer.handle}
       friends={friends}
       guestbookEntries={guestbookEntries}
+      installedPlugins={installedPlugins}
     />
   );
 }

@@ -193,3 +193,71 @@ CREATE TABLE IF NOT EXISTS appeals (
 );
 
 CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status, created_at);
+
+CREATE TABLE IF NOT EXISTS user_assets (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('image', 'audio')),
+  mime_type TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_assets_user ON user_assets(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id TEXT PRIMARY KEY,
+  sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipient_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_recipient ON direct_messages(recipient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dm_sender ON direct_messages(sender_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS feed_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN ('page_published', 'page_updated', 'theme_shared')),
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_feed_events_created ON feed_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feed_events_user ON feed_events(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS instance_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS federation_follows (
+  id TEXT PRIMARY KEY,
+  follower_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  instance_domain TEXT NOT NULL,
+  remote_handle TEXT NOT NULL,
+  profile_json TEXT NOT NULL,
+  followed_at TEXT NOT NULL,
+  UNIQUE (follower_user_id, instance_domain, remote_handle)
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_plugins (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  manifest_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS installed_plugins (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  manifest_json TEXT NOT NULL,
+  installed_at TEXT NOT NULL
+);
+

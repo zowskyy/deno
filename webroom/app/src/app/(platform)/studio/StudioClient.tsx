@@ -3,10 +3,14 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { PageRenderer, type TopEightLink } from "@/components/PageRenderer";
+import { AiPageAssist } from "@/components/studio/AiPageAssist";
+import { AssetUploadButton } from "@/components/studio/AssetUploadButton";
 import { PixelArtGridEditor } from "@/components/studio/PixelArtGridEditor";
 import { WonderStrip } from "@/components/studio/WonderStrip";
 import type { FriendSummary } from "@/lib/friends";
 import type { GuestbookEntry } from "@/lib/guestbook";
+import { parseAllowlistedEmbed } from "@/lib/embeds";
+import type { InstalledPlugin } from "@/lib/plugins";
 import { applyCreativeSpark, applyTemplateMood, TEMPLATE_MOODS, type CreativeSparkId } from "@/lib/creativeSparks";
 import type { PageDocument, PagePartId, PixelArtPiece, StoredPage, TemplateId } from "@/lib/pageDocumentTypes";
 import { profileScopeClass, scopeProfileCss } from "@/lib/cssScope";
@@ -73,6 +77,7 @@ export interface StudioClientProps {
   handle: string;
   friends: FriendSummary[];
   guestbookEntries: GuestbookEntry[];
+  installedPlugins: InstalledPlugin[];
 }
 
 function newId(): string {
@@ -123,6 +128,7 @@ export function StudioClient({
   handle,
   friends,
   guestbookEntries,
+  installedPlugins,
 }: StudioClientProps) {
   const [document, setDocument] = useState<PageDocument>(initialDocument);
   const [publishedDoc, setPublishedDoc] = useState<PageDocument>(publishedDocument);
@@ -348,7 +354,12 @@ export function StudioClient({
               <LayoutTab document={document} onChange={commitEdit} />
             )}
             {tab === "content" && (
-              <ContentTab document={document} onChange={commitEdit} friends={friends} />
+              <ContentTab
+                document={document}
+                onChange={commitEdit}
+                friends={friends}
+                installedPlugins={installedPlugins}
+              />
             )}
             {tab === "access" && (
               <AccessTab
@@ -569,6 +580,18 @@ function LookTab({
         </select>
       </label>
 
+      <AiPageAssist
+        displayName={doc.identity.displayName}
+        onGenerated={(aiDoc) =>
+          onChange({
+            ...doc,
+            ...aiDoc,
+            identity: { ...aiDoc.identity, displayName: doc.identity.displayName },
+            theme: doc.theme,
+          })
+        }
+      />
+
       <fieldset className="studio-fieldset">
         <legend>Themes</legend>
         <p className="studio-hint">
@@ -721,10 +744,12 @@ function ContentTab({
   document: doc,
   onChange,
   friends,
+  installedPlugins,
 }: {
   document: PageDocument;
   onChange: (d: PageDocument) => void;
   friends: FriendSummary[];
+  installedPlugins: InstalledPlugin[];
 }) {
   const [tagInput, setTagInput] = useState("");
 
@@ -776,6 +801,24 @@ function ContentTab({
             }
           />
         </label>
+        <AssetUploadButton
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          label={doc.identity.avatarAssetId ? "Replace avatar" : "Upload avatar"}
+          onUploaded={(assetId) =>
+            onChange({ ...doc, identity: { ...doc.identity, avatarAssetId: assetId } })
+          }
+        />
+        {doc.identity.avatarAssetId && (
+          <button
+            type="button"
+            className="btn secondary studio-remove"
+            onClick={() =>
+              onChange({ ...doc, identity: { ...doc.identity, avatarAssetId: undefined } })
+            }
+          >
+            Remove avatar
+          </button>
+        )}
       </fieldset>
 
       <fieldset className="studio-fieldset">
@@ -848,18 +891,34 @@ function ContentTab({
         {doc.gallery.map((item) => (
           <div key={item.id} className="studio-card">
             <label className="field">
-              <span>Image URL</span>
+              <span>Image URL (optional if uploaded)</span>
               <input
                 type="url"
-                value={item.url}
+                value={item.url ?? ""}
                 onChange={(e) =>
                   onChange({
                     ...doc,
-                    gallery: doc.gallery.map((g) => (g.id === item.id ? { ...g, url: e.target.value } : g)),
+                    gallery: doc.gallery.map((g) =>
+                      g.id === item.id
+                        ? { ...g, url: e.target.value || undefined, assetId: e.target.value ? undefined : g.assetId }
+                        : g,
+                    ),
                   })
                 }
               />
             </label>
+            <AssetUploadButton
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              label={item.assetId ? "Replace uploaded image" : "Upload image"}
+              onUploaded={(assetId) =>
+                onChange({
+                  ...doc,
+                  gallery: doc.gallery.map((g) =>
+                    g.id === item.id ? { ...g, assetId, url: undefined } : g,
+                  ),
+                })
+              }
+            />
             <label className="field">
               <span>Alt text</span>
               <input
@@ -1208,13 +1267,29 @@ function ContentTab({
                     ...doc,
                     shrines: doc.shrines.map((s) =>
                       s.id === shrine.id
-                        ? { ...s, imageUrl: e.target.value || undefined }
+                        ? {
+                            ...s,
+                            imageUrl: e.target.value || undefined,
+                            imageAssetId: e.target.value ? undefined : s.imageAssetId,
+                          }
                         : s,
                     ),
                   })
                 }
               />
             </label>
+            <AssetUploadButton
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              label={shrine.imageAssetId ? "Replace shrine image" : "Upload shrine image"}
+              onUploaded={(assetId) =>
+                onChange({
+                  ...doc,
+                  shrines: doc.shrines.map((s) =>
+                    s.id === shrine.id ? { ...s, imageAssetId: assetId, imageUrl: undefined } : s,
+                  ),
+                })
+              }
+            />
             <label className="field">
               <span>Image alt text (optional)</span>
               <input
@@ -1267,7 +1342,9 @@ function ContentTab({
 
       <fieldset className="studio-fieldset">
         <legend>Playlist</legend>
-        <p className="studio-hint">Outbound links only — no embeds or autoplay.</p>
+        <p className="studio-hint">
+          Hosted audio, outbound links, or allowlisted Spotify/YouTube embeds — no autoplay.
+        </p>
         {doc.playlist.map((track) => (
           <div key={track.id} className="studio-card">
             <label className="field">
@@ -1287,20 +1364,60 @@ function ContentTab({
               />
             </label>
             <label className="field">
-              <span>URL</span>
+              <span>URL (optional)</span>
               <input
                 type="url"
-                value={track.url}
+                value={track.url ?? ""}
                 onChange={(e) =>
                   onChange({
                     ...doc,
                     playlist: doc.playlist.map((t) =>
-                      t.id === track.id ? { ...t, url: e.target.value } : t,
+                      t.id === track.id
+                        ? {
+                            ...t,
+                            url: e.target.value || undefined,
+                            embed: e.target.value ? undefined : t.embed,
+                            assetId: e.target.value ? undefined : t.assetId,
+                          }
+                        : t,
                     ),
                   })
                 }
               />
             </label>
+            <label className="field">
+              <span>Spotify or YouTube URL (embed)</span>
+              <input
+                type="url"
+                placeholder="https://open.spotify.com/track/…"
+                value={track.embed ? track.embed.embedUrl : ""}
+                onChange={(e) => {
+                  const parsed = parseAllowlistedEmbed(e.target.value);
+                  onChange({
+                    ...doc,
+                    playlist: doc.playlist.map((t) =>
+                      t.id === track.id
+                        ? parsed
+                          ? { ...t, embed: parsed, url: undefined, assetId: undefined }
+                          : { ...t, embed: undefined }
+                        : t,
+                    ),
+                  });
+                }}
+              />
+            </label>
+            <AssetUploadButton
+              accept="audio/mpeg,audio/ogg,audio/wav"
+              label={track.assetId ? "Replace audio file" : "Upload audio"}
+              onUploaded={(assetId) =>
+                onChange({
+                  ...doc,
+                  playlist: doc.playlist.map((t) =>
+                    t.id === track.id ? { ...t, assetId, url: undefined, embed: undefined } : t,
+                  ),
+                })
+              }
+            />
             <button
               type="button"
               className="btn secondary studio-remove"
@@ -1529,6 +1646,80 @@ function ContentTab({
           >
             Add mini-page
           </button>
+        )}
+      </fieldset>
+
+      <fieldset className="studio-fieldset">
+        <legend>Plugins</legend>
+        <p className="studio-hint">
+          Add installed plugins from the <Link href="/marketplace">marketplace</Link>.
+        </p>
+        {doc.plugins.map((plugin) => (
+          <div key={plugin.id} className="studio-card">
+            <p className="mono">{plugin.pluginSlug}</p>
+            {Object.entries(plugin.data).map(([key, value]) => (
+              <label key={key} className="field">
+                <span>{key}</span>
+                <input
+                  type="text"
+                  value={String(value ?? "")}
+                  onChange={(e) =>
+                    onChange({
+                      ...doc,
+                      plugins: doc.plugins.map((p) =>
+                        p.id === plugin.id
+                          ? { ...p, data: { ...p.data, [key]: e.target.value } }
+                          : p,
+                      ),
+                    })
+                  }
+                />
+              </label>
+            ))}
+            <button
+              type="button"
+              className="btn secondary studio-remove"
+              onClick={() => onChange({ ...doc, plugins: doc.plugins.filter((p) => p.id !== plugin.id) })}
+            >
+              Remove plugin
+            </button>
+          </div>
+        ))}
+        {installedPlugins.length > 0 && doc.plugins.length < 10 && (
+          <div className="studio-plugin-add-row">
+            {installedPlugins
+              .filter((p) => !doc.plugins.some((inst) => inst.pluginSlug === p.slug))
+              .map((plugin) => (
+                <button
+                  key={plugin.slug}
+                  type="button"
+                  className="btn secondary"
+                  onClick={() =>
+                    onChange({
+                      ...doc,
+                      plugins: [
+                        ...doc.plugins,
+                        {
+                          id: newId(),
+                          pluginSlug: plugin.slug,
+                          data: { ...plugin.manifest.defaultData },
+                        },
+                      ],
+                      pageParts: doc.pageParts.includes("identity")
+                        ? doc.pageParts
+                        : doc.pageParts,
+                    })
+                  }
+                >
+                  Add {plugin.manifest.name}
+                </button>
+              ))}
+          </div>
+        )}
+        {installedPlugins.length === 0 && (
+          <p className="empty-note">
+            No plugins installed yet — visit the marketplace to add quote cards, countdowns, and more.
+          </p>
         )}
       </fieldset>
 

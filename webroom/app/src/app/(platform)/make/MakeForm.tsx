@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
+import { AiPageAssist } from "@/components/studio/AiPageAssist";
 import { TemplateMoodPicker } from "@/components/studio/TemplateMoodPicker";
-import { makeFlowAction, type MakeState } from "./actions";
+import type { PageDocument } from "@/lib/pageDocumentTypes";
+import { makeFlowAction, saveAiPageAction, type MakeState } from "./actions";
 
 const initialState: MakeState = {};
 
@@ -23,8 +25,15 @@ const PARTS: { id: string; label: string; hint: string; defaultOn: boolean }[] =
 export function MakeForm({ initialDisplayName }: { initialDisplayName: string }) {
   const [state, formAction, pending] = useActionState(makeFlowAction, initialState);
 
+  const applyAiPage = (document: PageDocument) => {
+    void saveAiPageAction(JSON.stringify(document));
+  };
+
   return (
-    <form action={formAction} className="make-form">
+    <>
+      <AiPageAssist displayName={initialDisplayName} onGenerated={applyAiPage} />
+
+      <form action={formAction} className="make-form">
       {state.error && (
         <div className="error-banner" role="alert">
           {state.error}
@@ -82,5 +91,6 @@ export function MakeForm({ initialDisplayName }: { initialDisplayName: string })
         {pending ? "Publishing…" : "Publish your corner"}
       </button>
     </form>
+    </>
   );
 }

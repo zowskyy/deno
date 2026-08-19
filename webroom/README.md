@@ -16,9 +16,9 @@ Make → Shape → Publish → Wander
 
 ---
 
-## The four screens
+## The four screens (+ post-V1)
 
-Everything in Webroom lives on four screens. No notification center, no DMs, no creator analytics dashboard.
+Everything in Webroom lives on four core screens, plus post-V1 additions for messaging, activity, plugins, and self-hosting. No notification center and no creator analytics dashboard.
 
 | Screen | What you do | What it's for |
 |--------|-------------|---------------|
@@ -26,6 +26,10 @@ Everything in Webroom lives on four screens. No notification center, no DMs, no 
 | **Make** | Create | Start a page through a short guided flow — pick a mood, add your name, choose what belongs on your page |
 | **My Page** | Publish | View and share your public space at `@yourhandle` |
 | **Studio** | Shape | Change appearance, content, and layout — colors, fonts, section order, gallery, blog, guestbook, and more |
+| **Feed** | Catch up | Activity from friends and public updates — ranked by connection, not engagement scores |
+| **Messages** | Talk privately | Direct messages between accounts — no public thread |
+| **Plugins** | Extend | Install structured page modules from the marketplace |
+| **Instance** | Self-host | Configure your instance URL and follow remote profiles |
 
 Friends are part of the product from day one: mutual-accept friend links form a visible graph you can browse outward from any page you like. That is discovery by choice, not a feed you're fed.
 
@@ -70,7 +74,12 @@ Phases 1–5 are **complete** and the release build is **hardened** — schema-v
 - Recently decorated pages · tags · curated collections · random page · web rings · friend-link graph browsing · guestbooks with approval
 
 **Phase 5 — Rich modules and shared themes**
-- Shrine, Playlist (outbound links — no autoplay embeds), Pixel Art, and Mini-page modules · theme gallery · install and fork a theme · attribution · theme version history · theme reporting · scoped custom CSS · Wonder sparks for one-click creative surprises
+- Shrine, Playlist (hosted audio, outbound links, and allowlisted Spotify/YouTube embeds — no autoplay), Pixel Art, and Mini-page modules · theme gallery · install and fork a theme · attribution · theme version history · theme reporting · scoped custom CSS · Wonder sparks for one-click creative surprises
+
+**Post-V1 — Hosted media, social, and federation**
+- Webroom-hosted image and audio uploads (gallery, shrine, playlist, avatar) · direct messages · activity feed with friend-prioritized ranking · deterministic recommendations (tags + friend-of-friend + recency) · federation profile export and remote follows · plugin marketplace · AI page generation (template-based offline, optional LLM with API key) · self-hosting instance URL configuration
+
+**Still never shipped:** visitor analytics (page views, referrers, tracking).
 
 The test suite covers validation, moderation, discovery, themes, and adversarial edge cases. Run `npm test` in `webroom/app` to verify the current count.
 
@@ -102,6 +111,11 @@ export WEBROOM_MODERATOR_HANDLE=yourmodhandle
 | `WEBROOM_MODERATOR_HANDLE` | Handle to promote as moderator on first `/moderation` visit (account must already exist) |
 | `WEBROOM_DB_PATH` | Path to the SQLite database file (default: `webroom/app/webroom.db`) |
 | `WEBROOM_AUTO_MODERATOR_SEED` | Set to `true` to promote the first registered user as moderator if no handle is configured (development only) |
+| `WEBROOM_INSTANCE_URL` | Public base URL for this instance (federation exports) |
+| `WEBROOM_UPLOAD_DIR` | Directory for hosted user uploads (default: `webroom/app/uploads`) |
+| `WEBROOM_MAX_UPLOAD_BYTES` | Maximum upload size in bytes (default: 5MB images, 15MB audio) |
+| `WEBROOM_AI_API_KEY` | Optional OpenAI API key for LLM-backed page generation |
+| `WEBROOM_AI_MODEL` | OpenAI model name when using AI generation (default: `gpt-4o-mini`) |
 
 ---
 
@@ -124,11 +138,11 @@ Webroom is a **separate product** from [gateway-probe](../README.md) (the OpenWr
 
 ---
 
-## What Webroom is not (V1)
+## What Webroom deliberately excludes
 
-No infinite feed · no DMs · no arbitrary HTML or JavaScript in pages · no third-party embeds · no autoplay music · no plugin marketplace · no AI-generated pages · no federation or self-hosting controls at launch · no recommendation algorithms.
+No visitor analytics (page views, referrers, tracking) — this is permanent. No arbitrary HTML or JavaScript in pages. No autoplay music. No engagement-score ranking in the feed.
 
-Webroom stays ambitious by making expressive personal publishing simple, durable, safe, and accessible — not by shipping every possible social feature.
+Webroom stays ambitious by making expressive personal publishing simple, durable, safe, and accessible — not by surveillance or algorithmic manipulation.
 
 ---
 

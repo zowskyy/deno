@@ -85,13 +85,22 @@ const IdentitySchema = z.object({
   avatarAssetId: z.string().uuid().optional(),
 });
 
-/** Image entry in the page gallery module. */
-const GalleryItemSchema = z.object({
-  id: z.string().uuid(),
-  url: httpUrl,
-  alt: z.string().trim().min(1).max(200),
-  caption: z.string().trim().max(280).optional(),
+/** Allowlisted third-party embed in a playlist track. */
+const EmbedSchema = z.object({
+  provider: z.enum(["spotify", "youtube"]),
+  embedUrl: z.string().url(),
 });
+
+/** Image entry in the page gallery module. */
+const GalleryItemSchema = z
+  .object({
+    id: z.string().uuid(),
+    url: httpUrl.optional(),
+    assetId: z.string().uuid().optional(),
+    alt: z.string().trim().min(1).max(200),
+    caption: z.string().trim().max(280).optional(),
+  })
+  .refine((item) => !!(item.url || item.assetId), { message: "gallery item needs url or assetId" });
 
 /** Blog post embedded in a page document. */
 const BlogPostSchema = z.object({
@@ -122,15 +131,22 @@ const ShrineSchema = z.object({
   title: z.string().trim().min(1).max(80),
   body: z.string().trim().min(1).max(5000),
   imageUrl: httpUrl.optional(),
+  imageAssetId: z.string().uuid().optional(),
   imageAlt: z.string().trim().max(200).optional(),
 });
 
-/** Track link in the playlist module. */
-const PlaylistTrackSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().trim().min(1).max(120),
-  url: httpUrl,
-});
+/** Track, hosted audio, or allowlisted embed in the playlist module. */
+const PlaylistTrackSchema = z
+  .object({
+    id: z.string().uuid(),
+    title: z.string().trim().min(1).max(120),
+    url: httpUrl.optional(),
+    assetId: z.string().uuid().optional(),
+    embed: EmbedSchema.optional(),
+  })
+  .refine((t) => !!(t.url || t.assetId || t.embed), {
+    message: "playlist track needs url, assetId, or embed",
+  });
 
 /** Pixel art grid piece with dimensions and color cells. */
 const PixelArtPieceSchema = z
@@ -160,6 +176,13 @@ const AccessSchema = z.object({
   contrastWarningsEnabled: z.boolean().default(true),
 });
 
+/** User-installed plugin module instance on a page. */
+const PagePluginInstanceSchema = z.object({
+  id: z.string().uuid(),
+  pluginSlug: z.string().trim().min(1).max(64),
+  data: z.record(z.string(), z.unknown()),
+});
+
 /** Zod schema for a complete version-3 page document. */
 export const PageDocumentSchema = z.object({
   version: z.literal(CURRENT_SCHEMA_VERSION),
@@ -178,6 +201,7 @@ export const PageDocumentSchema = z.object({
   playlist: z.array(PlaylistTrackSchema).max(20).default([]),
   pixelArt: z.array(PixelArtPieceSchema).max(10).default([]),
   miniPages: z.array(MiniPageSchema).max(10).default([]),
+  plugins: z.array(PagePluginInstanceSchema).max(10).default([]),
   guestbook: z
     .object({
       enabled: z.boolean().default(true),
@@ -197,6 +221,8 @@ export type PlaylistTrack = z.infer<typeof PlaylistTrackSchema>;
 export type PixelArtPiece = z.infer<typeof PixelArtPieceSchema>;
 /** Mini-page module entry type. */
 export type MiniPage = z.infer<typeof MiniPageSchema>;
+/** Installed plugin module instance on a page. */
+export type PagePluginInstance = z.infer<typeof PagePluginInstanceSchema>;
 
 /** Persisted page document plus publish, visibility, and draft metadata. */
 export interface StoredPage {
@@ -222,6 +248,7 @@ export function defaultPageDocumentFieldsV3() {
     playlist: [] as PageDocument["playlist"],
     pixelArt: [] as PageDocument["pixelArt"],
     miniPages: [] as PageDocument["miniPages"],
+    plugins: [] as PageDocument["plugins"],
     guestbook: { enabled: true, requireApproval: true },
     access: { altTextReminder: true, contrastWarningsEnabled: true },
   };

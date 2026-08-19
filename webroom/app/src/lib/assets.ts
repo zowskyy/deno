@@ -1,0 +1,124 @@
+import { randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { join, dirname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
+import { getDb } from "./db";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Error thrown when an upload fails validation or storage. */
+export class AssetError extends Error {}
+
+/** Allowed MIME types for image uploads. */
+export const IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+/** Allowed MIME types for audio uploads. */
+export const AUDIO_MIMES = new Set(["audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav"]);
+
+/** Stored user asset metadata. */
+export interface UserAsset {
+  id: string;
+  userId: string;
+  kind: "image" | "audio";
+  mimeType: string;
+  originalName: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+/** Resolve the filesystem directory for hosted uploads. */
+export function getUploadDir(): string {
+  const dir = process.env.WEBROOM_UPLOAD_DIR ?? join(__dirname, "..", "..", "uploads");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** Maximum upload size in bytes (default 10MB). */
+export function maxUploadBytes(kind: "image" | "audio"): number {
+  const env = process.env.WEBROOM_MAX_UPLOAD_BYTES;
+  if (env) return Number(env);
+  return kind === "audio" ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+}
+
+/** Store an uploaded file and record metadata in the database. */
+export function storeUserAsset(
+  userId: string,
+  buffer: Buffer,
+  mimeType: string,
+  originalName: string,
+): UserAsset {
+  const kind = IMAGE_MIMES.has(mimeType) ? "image" : AUDIO_MIMES.has(mimeType) ? "audio" : null;
+  if (!kind) throw new AssetError(`File type not allowed: ${mimeType}`);
+  if (buffer.length > maxUploadBytes(kind)) {
+    throw new AssetError(`File exceeds maximum size of ${maxUploadBytes(kind)} bytes.`);
+  }
+
+  const id = randomUUID();
+  const ext = mimeType.split("/")[1]?.replace("x-wav", "wav") ?? "bin";
+  const storagePath = join(getUploadDir(), `${id}.${ext}`);
+  writeFileSync(storagePath, buffer);
+
+  const now = new Date().toISOString();
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO user_assets (id, user_id, kind, mime_type, original_name, storage_path, size_bytes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, userId, kind, mimeType, basename(originalName), storagePath, buffer.length, now);
+
+  return {
+    id,
+    userId,
+    kind,
+    mimeType,
+    originalName: basename(originalName),
+    sizeBytes: buffer.length,
+    createdAt: now,
+  };
+}
+
+/** Load asset metadata by id. */
+export function getUserAsset(assetId: string): UserAsset | null {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT id, user_id, kind, mime_type, original_name, size_bytes, created_at, storage_path
+       FROM user_assets WHERE id = ?`,
+    )
+    .get(assetId) as
+    | {
+        id: string;
+        user_id: string;
+        kind: string;
+        mime_type: string;
+        original_name: string;
+        size_bytes: number;
+        created_at: string;
+        storage_path: string;
+      }
+    | undefined;
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    kind: row.kind as "image" | "audio",
+    mimeType: row.mime_type,
+    originalName: row.original_name,
+    sizeBytes: row.size_bytes,
+    createdAt: row.created_at,
+  };
+}
+
+/** Read asset file bytes from disk. */
+export function readAssetFile(assetId: string): { buffer: Buffer; mimeType: string } | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT storage_path, mime_type FROM user_assets WHERE id = ?")
+    .get(assetId) as { storage_path: string; mime_type: string } | undefined;
+  if (!row || !existsSync(row.storage_path)) return null;
+  return { buffer: readFileSync(row.storage_path), mimeType: row.mime_type };
+}
+
+/** Verify the viewer may reference this asset on a page (owner only). */
+export function userOwnsAsset(userId: string, assetId: string): boolean {
+  const asset = getUserAsset(assetId);
+  return asset?.userId === userId;
+}
