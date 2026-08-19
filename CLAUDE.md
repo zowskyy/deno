@@ -90,8 +90,15 @@ between "here's an idea" and "here's a working thing."
 
 ## Standing context
 
-- Current project: `gateway-probe`, a read-only OpenWrt/Linux gateway
-  diagnostic tool (bufferbloat/CAKE measurement). See `README.md` and
+This repo now hosts two separate products. They don't share code or
+users — keep their concerns, docs, and community-facing material
+separate (e.g. don't let Webroom material leak into what gateway-probe
+pilot testers see when they clone the repo for its README/install docs).
+
+### gateway-probe
+
+- `gateway-probe`, a read-only OpenWrt/Linux gateway diagnostic tool
+  (bufferbloat/CAKE measurement). See `README.md` and
   `deployment/DEPLOYMENT.md` for what exists.
 - Long-term direction: open-source, community-driven (r/openwrt,
   homelab audience first), aimed at eventually supporting supervised
@@ -118,3 +125,34 @@ between "here's an idea" and "here's a working thing."
   project matures, and raise it again once there's a real milestone to
   point to (a published case study, a proven Phase 2 result) — not
   before there's something credible to fund.
+
+### Webroom
+
+- A personal-homepage platform — make a page, give it a mood, publish
+  it safely, wander other people's pages without a feed or algorithm.
+  Full plan: `webroom/PLAN.md`.
+- **Doesn't have its own repo yet.** Tried to create one and hit a real
+  tool limitation (this session's GitHub access can't create new
+  repositories — `403 Resource not accessible by integration`), so the
+  plan lives in `webroom/PLAN.md` in this repo for now. Move it to a
+  dedicated `webroom` repo the moment one exists (small ask: the user
+  creating an empty repo at github.com/new takes a few clicks, no code
+  needed) — don't treat staying in `deno` as a permanent decision.
+- **Explicitly builds on the same engineering discipline as
+  gateway-probe** — structured/versioned documents, read-only-by-default
+  with explicit reversible mutation, schema validation, graceful
+  degradation, adversarial testing. See the "underlying layer" section
+  of `webroom/PLAN.md` for the concrete pattern-by-pattern mapping. Keep
+  applying that same discipline to Webroom's build, not a lighter
+  version of it.
+- **Privacy (visitor analytics)**: deliberately left open — leaning
+  toward none, or at most a private, un-exported view count, given the
+  product's anti-surveillance/anti-feed ethos, but not decided yet.
+  Decide before Phase 1 ships, don't let it get added quietly later.
+- **Sustainability**: ongoing standing consideration, not solved now —
+  same principle as gateway-probe. A hosted platform with human
+  moderation has real running costs; raise funding path again once
+  there's a real user base to point to.
+- Current focus: Phase 1 ("Make a page") per the roadmap in
+  `webroom/PLAN.md` — nothing built yet, this is still at the plan
+  stage.
