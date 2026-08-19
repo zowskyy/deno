@@ -43,6 +43,7 @@ export function validatePassword(password: string): void {
   }
 }
 
+/** Hash a password with scrypt for storage. */
 function hashPassword(password: string): string {
   const salt = randomBytes(SALT_BYTES);
   const derived = scryptSync(password, salt, SCRYPT_KEYLEN);
@@ -56,6 +57,7 @@ function hashPassword(password: string): string {
 // silently be the wrong length.
 const DUMMY_HASH = hashPassword(randomBytes(32).toString("hex"));
 
+/** Verify a password against a stored scrypt hash. */
 function verifyPassword(password: string, stored: string): boolean {
   const [saltHex, hashHex] = stored.split(":");
   if (!saltHex || !hashHex) return false;
@@ -183,6 +185,7 @@ export function createSession(userId: string): string {
   return rawToken;
 }
 
+/** Hash a session token for database lookup. */
 function hashToken(rawToken: string): string {
   // Sessions are looked up by exact hash match (not scrypt — tokens are
   // already high-entropy random, no need for a slow KDF here), so a
@@ -190,7 +193,7 @@ function hashToken(rawToken: string): string {
   return scryptSync(rawToken, "webroom-session-salt-v1", 32).toString("hex");
 }
 
-/** Resolve a session token to the logged-in user, or null if expired or invalid. */
+/** Resolve a session token to the logged-in user, or null when missing, expired, invalid, or platform-blocked. */
 export function resolveSession(rawToken: string | undefined): User | null {
   if (!rawToken) return null;
   const db = getDb();

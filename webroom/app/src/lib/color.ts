@@ -4,6 +4,7 @@
 // light/dark-mode color, not a color derived from the PAGE's own theme
 // background, so a dark theme on a light-mode browser rendered
 // near-invisible near-black-on-near-black text.
+/** Compute relative luminance for a hex color. */
 function relativeLuminance(hex: string): number {
   const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const [r, g, b] = rgb.map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));

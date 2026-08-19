@@ -10,6 +10,7 @@ import { getDb } from "./db";
 /** Error thrown when a friend request action is invalid or blocked. */
 export class FriendRequestError extends Error {}
 
+/** Return whether either user has blocked the other. */
 function isBlocked(db: ReturnType<typeof getDb>, a: string, b: string): boolean {
   const row = db
     .prepare(

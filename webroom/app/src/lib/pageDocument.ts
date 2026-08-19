@@ -109,6 +109,7 @@ export function parsePageDocument(input: unknown): PageDocument {
   return result.data;
 }
 
+/** Map a page_documents row into a StoredPage record. */
 function rowToStored(row: {
   document_json: string;
   draft_document_json: string | null;
@@ -248,6 +249,7 @@ export function getMiniPage(document: PageDocument, slug: string) {
   return document.miniPages.find((p) => p.slug === slug) ?? null;
 }
 
+/** Replace a user's page tags with the current document tag set. */
 function syncPageTags(userId: string, tags: string[]): void {
   const db = getDb();
   db.prepare("DELETE FROM page_tags WHERE user_id = ?").run(userId);

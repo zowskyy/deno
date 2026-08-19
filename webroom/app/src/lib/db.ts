@@ -84,11 +84,21 @@ function migrate(db: DatabaseSync): void {
     db.exec("ALTER TABLE theme_reports ADD COLUMN reviewed_at TEXT");
   }
   if (!indexExists(db, "idx_appeals_one_open_per_user")) {
-    reconcileDuplicateOpenAppeals(db);
-    db.exec(
-      "CREATE UNIQUE INDEX idx_appeals_one_open_per_user ON appeals(user_id) WHERE status = 'open'",
-    );
+    ensureAppealsUniqueIndex(db);
   }
+}
+
+/** Reconcile duplicate open appeals and create the one-open-per-user unique index. */
+export function ensureAppealsUniqueIndex(db: DatabaseSync): void {
+  reconcileDuplicateOpenAppeals(db);
+  db.exec(
+    "CREATE UNIQUE INDEX idx_appeals_one_open_per_user ON appeals(user_id) WHERE status = 'open'",
+  );
+}
+
+/** Re-run schema bootstrap and incremental migrations (for tests and upgrades). */
+export function runMigrations(db: DatabaseSync): void {
+  migrate(db);
 }
 
 /** Return the shared SQLite database instance, initializing it on first use. */

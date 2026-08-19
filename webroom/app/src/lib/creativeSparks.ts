@@ -56,10 +56,12 @@ const COLOR_PALETTES = [
   { accent: "#f1eaee", background: "#2d1b2e" },
 ];
 
+/** Pick a random item from a non-empty array. */
 function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
 }
 
+/** Ensure a page part id is present exactly once in the parts list. */
 function ensurePart(parts: PagePartId[], part: PagePartId): PagePartId[] {
   return parts.includes(part) ? parts : [...parts, part];
 }

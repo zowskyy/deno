@@ -89,6 +89,7 @@ export function getSharedTheme(id: string): SharedTheme | null {
   return row ? rowToTheme(row) : null;
 }
 
+/** Convert a theme_reports row into a SharedTheme record. */
 function rowToTheme(row: Record<string, unknown>): SharedTheme {
   return {
     id: row.id as string,

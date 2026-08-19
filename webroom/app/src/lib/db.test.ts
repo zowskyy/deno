@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { reconcileDuplicateOpenAppeals } from "./db";
+import { ensureAppealsUniqueIndex, getDb, reconcileDuplicateOpenAppeals, resetDbForTests, runMigrations } from "./db";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+process.env.WEBROOM_DB_PATH = ":memory:";
 
 function columnExists(db: DatabaseSync, table: string, column: string): boolean {
   const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
@@ -20,38 +17,18 @@ function indexExists(db: DatabaseSync, name: string): boolean {
   return !!row;
 }
 
-function migrateThemeReportColumns(db: DatabaseSync): void {
-  if (!columnExists(db, "theme_reports", "moderator_id")) {
-    db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_id TEXT");
-  }
-  if (!columnExists(db, "theme_reports", "moderator_note")) {
-    db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_note TEXT");
-  }
-  if (!columnExists(db, "theme_reports", "reviewed_at")) {
-    db.exec("ALTER TABLE theme_reports ADD COLUMN reviewed_at TEXT");
-  }
-}
-
-function createAppealsIndex(db: DatabaseSync): void {
-  reconcileDuplicateOpenAppeals(db);
-  db.exec(
-    "CREATE UNIQUE INDEX idx_appeals_one_open_per_user ON appeals(user_id) WHERE status = 'open'",
-  );
-}
-
 describe("theme_reports migration", () => {
-  let db: DatabaseSync;
-
   beforeEach(() => {
-    db = new DatabaseSync(":memory:");
-    const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
-    db.exec(schema);
+    resetDbForTests();
+    const db = getDb();
+    db.exec("ALTER TABLE theme_reports DROP COLUMN moderator_id");
     db.exec("ALTER TABLE theme_reports DROP COLUMN moderator_note");
     db.exec("ALTER TABLE theme_reports DROP COLUMN reviewed_at");
   });
 
-  it("adds missing moderation columns when only moderator_id exists", () => {
-    migrateThemeReportColumns(db);
+  it("adds missing moderation columns via production migration", () => {
+    const db = getDb();
+    runMigrations(db);
 
     expect(columnExists(db, "theme_reports", "moderator_id")).toBe(true);
     expect(columnExists(db, "theme_reports", "moderator_note")).toBe(true);
@@ -63,9 +40,9 @@ describe("appeals unique index migration", () => {
   let db: DatabaseSync;
 
   beforeEach(() => {
-    db = new DatabaseSync(":memory:");
-    const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
-    db.exec(schema);
+    resetDbForTests();
+    db = getDb();
+    db.exec("DROP INDEX IF EXISTS idx_appeals_one_open_per_user");
     db.exec("PRAGMA foreign_keys = ON;");
   });
 
@@ -85,7 +62,7 @@ describe("appeals unique index migration", () => {
       "INSERT INTO appeals (id, user_id, appeal_type, reason, created_at, status) VALUES (?, ?, 'platform_block', ?, ?, 'open')",
     ).run(newer, userId, "second appeal", now);
 
-    createAppealsIndex(db);
+    ensureAppealsUniqueIndex(db);
 
     expect(indexExists(db, "idx_appeals_one_open_per_user")).toBe(true);
     const open = db
@@ -99,5 +76,24 @@ describe("appeals unique index migration", () => {
       .get(newer) as { status: string; moderator_note: string };
     expect(dismissed.status).toBe("dismissed");
     expect(dismissed.moderator_note).toContain("duplicate open appeal");
+  });
+
+  it("reconcileDuplicateOpenAppeals is idempotent when no duplicates exist", () => {
+    const userId = randomUUID();
+    db.prepare(
+      "INSERT INTO users (id, handle, handle_lower, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(userId, "blockeduser", "blockeduser", "hash", new Date().toISOString());
+    db.prepare(
+      "INSERT INTO appeals (id, user_id, appeal_type, reason, created_at, status) VALUES (?, ?, 'platform_block', ?, ?, 'open')",
+    ).run(randomUUID(), userId, "only appeal", new Date().toISOString());
+
+    expect(() => reconcileDuplicateOpenAppeals(db)).not.toThrow();
+    expect(
+      (
+        db
+          .prepare("SELECT COUNT(*) as c FROM appeals WHERE user_id = ? AND status = 'open'")
+          .get(userId) as { c: number }
+      ).c,
+    ).toBe(1);
   });
 });

@@ -39,18 +39,29 @@ export function reviewReport(
 ): boolean {
   const db = getDb();
   const now = new Date().toISOString();
-  const result = db
-    .prepare(
-      "UPDATE reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
-    )
-    .run(status, moderatorId, note.trim() || null, now, reportId);
-  if (result.changes === 0) return false;
 
-  const report = db.prepare("SELECT reported_handle FROM reports WHERE id = ?").get(reportId) as
-    | { reported_handle: string }
-    | undefined;
-  logModeratorAction(moderatorId, `report_${status}`, report?.reported_handle ?? null, note);
-  return true;
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = db
+      .prepare(
+        "UPDATE reports SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
+      )
+      .run(status, moderatorId, note.trim() || null, now, reportId);
+    if (result.changes === 0) {
+      db.exec("ROLLBACK");
+      return false;
+    }
+
+    const report = db.prepare("SELECT reported_handle FROM reports WHERE id = ?").get(reportId) as
+      | { reported_handle: string }
+      | undefined;
+    logModeratorAction(moderatorId, `report_${status}`, report?.reported_handle ?? null, note);
+    db.exec("COMMIT");
+    return true;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 /** Append an auditable moderator action to the log. */
