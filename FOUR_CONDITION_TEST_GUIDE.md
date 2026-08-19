@@ -1,5 +1,24 @@
 # Four-Condition CAKE Test: Step-by-Step Guide
 
+> **Most people should use `deployment/run-four-condition-test.sh` instead
+> of following this guide by hand.** It runs the same test in one paste
+> (~6-7 minutes instead of ~1 hour of manual steps), computes the summary
+> automatically, and — importantly — automatically re-enables SQM if your
+> SSH session drops mid-test, which the manual steps below do **not**
+> protect against on their own. See `deployment/NO_LAPTOP_GUIDE.md` for
+> the one-shot version.
+>
+> This guide is still here for anyone who wants full manual control or to
+> understand exactly what the script is doing under the hood. If you do
+> follow it by hand, keep this **safety command** somewhere you can paste
+> it instantly — if anything goes wrong (dropped connection, a step
+> failing, you just lose track of where you are), run it to restore
+> normal protection:
+>
+> ```bash
+> uci set sqm.@default[0].enabled=1; uci commit sqm; /etc/init.d/sqm start
+> ```
+
 ## Prerequisites
 
 Before you start, make sure you have:
@@ -100,6 +119,11 @@ Copy the output and save it locally. You'll need it to re-enable SQM later.
 
 ## Step 3: Disable SQM for Tests 1-2 and 5-6
 
+> ⚠️ SQM is off starting now, until Step 6. If your SSH session drops
+> during this window, your connection is left without bufferbloat
+> protection until you reconnect and run the safety command from the top
+> of this guide.
+
 ```bash
 # Disable SQM
 uci set sqm.@default[0].enabled=0
@@ -118,7 +142,7 @@ echo "SQM is now DISABLED"
 **Idle test**: Just ping, no load.
 
 ```bash
-gateway-probe idle \
+gateway-probe --mode idle \
   --target 1.1.1.1 \
   --dns-server 1.1.1.1 \
   --output sqm-off-idle-1.json \
@@ -158,7 +182,7 @@ While iperf3 is running (on your gateway):
 ```bash
 # Terminal 2 (on gateway): Run loaded latency probe
 # Time this to overlap with iperf3
-gateway-probe upload-loaded \
+gateway-probe --mode upload-loaded \
   --target 1.1.1.1 \
   --dns-server 1.1.1.1 \
   --iperf-server <IPERF3_SERVER> \
@@ -210,7 +234,7 @@ echo "SQM is now ENABLED"
 Same as Test 1, but with SQM enabled:
 
 ```bash
-gateway-probe idle \
+gateway-probe --mode idle \
   --target 1.1.1.1 \
   --dns-server 1.1.1.1 \
   --output sqm-on-idle-1.json \
@@ -232,7 +256,7 @@ Same as Test 2, but with SQM enabled:
 # On client: iperf3 -c <SERVER> -t 30 -b 0
 
 # On gateway (overlapping):
-gateway-probe upload-loaded \
+gateway-probe --mode upload-loaded \
   --target 1.1.1.1 \
   --dns-server 1.1.1.1 \
   --iperf-server <IPERF3_SERVER> \
@@ -267,13 +291,22 @@ Repeat Steps 3-8 again, save as:
 
 ## Analyzing Results
 
-After all 12 tests, compile the results:
+After all 12 tests, compile the results. This uses `python3` (already
+required to run `gateway-probe` itself) rather than `jq`, which usually
+isn't installed on OpenWrt by default:
 
 ```bash
 # Extract p95 values from each report
 for f in sqm-*.json; do
   echo "$f:"
-  jq '.latency.public_p95_ms, .latency.load_validation.iperf_reported_throughput_mbps' "$f"
+  python3 -c "
+import json
+d = json.load(open('$f'))
+lat = d['latency']
+print(' public_p95_ms:', lat.get('public_p95_ms'))
+print(' throughput_mbps:', lat.get('loaded_throughput_mbps'))
+print(' valid_for_wan_comparison:', lat.get('load_validation', {}).get('valid_for_wan_comparison'))
+"
 done
 ```
 
