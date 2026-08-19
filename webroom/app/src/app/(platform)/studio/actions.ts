@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { profileScopeClass, scopeProfileCss } from "@/lib/cssScope";
 import {
   discardDraft,
   exportPageData,
+  getPageDocument,
   importPageData,
   PageDocumentValidationError,
   publishDraft,
@@ -20,12 +22,14 @@ import {
   type PageDocument,
   type StoredPage,
 } from "@/lib/pageDocument";
+import { getSharedTheme, installThemeOnDocument, publishTheme } from "@/lib/sharedThemes";
 
 export interface StudioActionResult {
   ok?: boolean;
   error?: string;
   document?: PageDocument;
   exportJson?: string;
+  themeId?: string;
 }
 
 function revalidateOwnerPaths(handle: string) {
@@ -190,4 +194,74 @@ export async function importPageAction(json: string): Promise<StudioActionResult
     }
     throw e;
   }
+}
+
+export async function publishThemeAction(
+  name: string,
+  description: string,
+  tagsCsv: string,
+): Promise<StudioActionResult> {
+  const viewer = await getCurrentUser();
+  if (!viewer) redirect("/login?next=/studio");
+
+  const trimmedName = name.trim();
+  if (!trimmedName) return { error: "Give your theme a name." };
+  if (trimmedName.length > 80) return { error: "Theme name must be 80 characters or fewer." };
+
+  const trimmedDescription = description.trim();
+  if (trimmedDescription.length > 280) {
+    return { error: "Theme description must be 280 characters or fewer." };
+  }
+
+  const tags = tagsCsv
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 10);
+  if (tags.some((t) => !/^[a-z0-9][a-z0-9-]*$/.test(t))) {
+    return { error: "Tags must be lowercase letters, numbers, and hyphens." };
+  }
+
+  const stored = getPageDocument(viewer.id);
+  if (!stored) return { error: "Publish a page before sharing a theme." };
+
+  const working = stored.draftDocument ?? stored.document;
+  if (working.theme.customCssEnabled && working.theme.customCss.trim()) {
+    const scoped = scopeProfileCss(working.theme.customCss, profileScopeClass(viewer.handle));
+    if (scoped.rejected.length > 0) {
+      return { error: `Custom CSS blocked: ${scoped.rejected.join("; ")}` };
+    }
+  }
+
+  try {
+    const themeId = publishTheme(
+      viewer.id,
+      viewer.handle,
+      trimmedName,
+      trimmedDescription,
+      tags,
+      working.theme,
+    );
+    revalidatePath("/explore/themes");
+    return { ok: true, themeId };
+  } catch (e) {
+    if (e instanceof Error) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function installThemeAction(themeId: string): Promise<StudioActionResult> {
+  const viewer = await getCurrentUser();
+  if (!viewer) redirect("/login?next=/studio");
+
+  const theme = getSharedTheme(themeId);
+  if (!theme) return { error: "That theme is no longer available." };
+
+  const stored = getPageDocument(viewer.id);
+  if (!stored) return { error: "No page document to update." };
+
+  const working = stored.draftDocument ?? stored.document;
+  const document = installThemeOnDocument(working, theme);
+  revalidateOwnerPaths(viewer.handle);
+  return { ok: true, document };
 }

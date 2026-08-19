@@ -22,6 +22,10 @@ const PARTS: { id: string; label: string; defaultOn: boolean }[] = [
   { id: "guestbook", label: "Guestbook", defaultOn: false },
   { id: "topEight", label: "Top 8", defaultOn: false },
   { id: "badges", label: "Badges", defaultOn: false },
+  { id: "shrine", label: "Shrines", defaultOn: false },
+  { id: "playlist", label: "Playlist", defaultOn: false },
+  { id: "pixelArt", label: "Pixel art", defaultOn: false },
+  { id: "miniPages", label: "Mini-pages", defaultOn: false },
 ];
 
 export function MakeForm({ initialDisplayName }: { initialDisplayName: string }) {

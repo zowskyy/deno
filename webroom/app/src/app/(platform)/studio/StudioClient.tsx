@@ -5,12 +5,14 @@ import Link from "next/link";
 import { PageRenderer, type TopEightLink } from "@/components/PageRenderer";
 import type { FriendSummary } from "@/lib/friends";
 import type { GuestbookEntry } from "@/lib/guestbook";
-import type { PageDocument, PagePartId, StoredPage, TemplateId } from "@/lib/pageDocumentTypes";
+import type { PageDocument, PagePartId, PixelArtPiece, StoredPage, TemplateId } from "@/lib/pageDocumentTypes";
+import { profileScopeClass, scopeProfileCss } from "@/lib/cssScope";
 import { getContrastWarnings, TEMPLATE_PRESETS } from "@/lib/pageDocumentTheme";
 import {
   exportPageAction,
   importPageAction,
   publishDraftAction,
+  publishThemeAction,
   restoreVersionAction,
   saveAndPublishAction,
   saveDraftAction,
@@ -42,6 +44,10 @@ const PART_LABELS: Record<PagePartId, string> = {
   guestbook: "Guestbook",
   topEight: "Top 8",
   badges: "Badges",
+  shrine: "Shrines",
+  playlist: "Playlist",
+  pixelArt: "Pixel art",
+  miniPages: "Mini-pages",
 };
 
 type TabId = "look" | "layout" | "content" | "access" | "publish";
@@ -77,6 +83,38 @@ export interface StudioClientProps {
 
 function newId(): string {
   return crypto.randomUUID();
+}
+
+function resizePixelGrid(
+  width: number,
+  height: number,
+  oldWidth: number,
+  oldHeight: number,
+  pixels: PixelArtPiece["pixels"],
+): PixelArtPiece["pixels"] {
+  const next: PixelArtPiece["pixels"] = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x < oldWidth && y < oldHeight) {
+        next.push(pixels[y * oldWidth + x] ?? "transparent");
+      } else {
+        next.push("transparent");
+      }
+    }
+  }
+  return next;
+}
+
+function defaultPixelArtPiece(): PixelArtPiece {
+  const width = 8;
+  const height = 8;
+  return {
+    id: newId(),
+    title: "New pixel art",
+    width,
+    height,
+    pixels: Array(width * height).fill("transparent") as PixelArtPiece["pixels"],
+  };
 }
 
 export function StudioClient({
@@ -292,7 +330,15 @@ export function StudioClient({
 
           <div className="studio-tab-panel">
             {tab === "look" && (
-              <LookTab document={document} onChange={commitEdit} />
+              <LookTab
+                document={document}
+                onChange={commitEdit}
+                handle={handle}
+                pending={pending}
+                onPublishTheme={(name, description, tags) =>
+                  runAction("Theme published to gallery.", () => publishThemeAction(name, description, tags))
+                }
+              />
             )}
             {tab === "layout" && (
               <LayoutTab document={document} onChange={commitEdit} />
@@ -301,7 +347,12 @@ export function StudioClient({
               <ContentTab document={document} onChange={commitEdit} friends={friends} />
             )}
             {tab === "access" && (
-              <AccessTab document={document} onChange={commitEdit} warnings={contrastWarnings} />
+              <AccessTab
+                document={document}
+                onChange={commitEdit}
+                warnings={contrastWarnings}
+                handle={handle}
+              />
             )}
             {tab === "publish" && (
               <PublishTab
@@ -401,10 +452,20 @@ export function StudioClient({
 function LookTab({
   document: doc,
   onChange,
+  handle,
+  pending,
+  onPublishTheme,
 }: {
   document: PageDocument;
   onChange: (d: PageDocument) => void;
+  handle: string;
+  pending: boolean;
+  onPublishTheme: (name: string, description: string, tags: string) => void;
 }) {
+  const [themeName, setThemeName] = useState("");
+  const [themeDescription, setThemeDescription] = useState("");
+  const [themeTags, setThemeTags] = useState("");
+
   const setTemplate = (template: TemplateId) => {
     const preset = TEMPLATE_PRESETS[template];
     onChange({
@@ -422,7 +483,10 @@ function LookTab({
   return (
     <>
       <h2 className="studio-section-title">Look</h2>
-      <p className="studio-hint">Template, colors, spacing, and type style.</p>
+      <p className="studio-hint">
+        Template, colors, spacing, and type style. Browse community themes in the{" "}
+        <Link href="/explore/themes">theme gallery</Link>.
+      </p>
 
       <fieldset className="studio-fieldset">
         <legend>Template</legend>
@@ -498,6 +562,54 @@ function LookTab({
           <option value="mono">Mono</option>
         </select>
       </label>
+
+      <fieldset className="studio-fieldset">
+        <legend>Themes</legend>
+        <p className="studio-hint">
+          Share your current look — template, colors, density, font, motion, and custom CSS settings — with
+          others in the gallery.
+        </p>
+        {doc.theme.attribution?.credit && (
+          <p className="studio-hint mono">{doc.theme.attribution.credit}</p>
+        )}
+        <label className="field">
+          <span>Theme name</span>
+          <input
+            type="text"
+            maxLength={80}
+            value={themeName}
+            onChange={(e) => setThemeName(e.target.value)}
+            placeholder={`@${handle}'s look`}
+          />
+        </label>
+        <label className="field">
+          <span>Description</span>
+          <textarea
+            rows={2}
+            maxLength={280}
+            value={themeDescription}
+            onChange={(e) => setThemeDescription(e.target.value)}
+            placeholder="What vibe does this theme capture?"
+          />
+        </label>
+        <label className="field">
+          <span>Tags</span>
+          <input
+            type="text"
+            value={themeTags}
+            onChange={(e) => setThemeTags(e.target.value)}
+            placeholder="y2k, neon, minimal"
+          />
+        </label>
+        <button
+          type="button"
+          className="btn secondary"
+          disabled={pending || !themeName.trim()}
+          onClick={() => onPublishTheme(themeName, themeDescription, themeTags)}
+        >
+          Publish theme to gallery
+        </button>
+      </fieldset>
     </>
   );
 }
@@ -1044,6 +1156,377 @@ function ContentTab({
       </fieldset>
 
       <fieldset className="studio-fieldset">
+        <legend>Shrines</legend>
+        <p className="studio-hint">Dedicated spaces for something you love.</p>
+        {doc.shrines.map((shrine) => (
+          <div key={shrine.id} className="studio-card">
+            <label className="field">
+              <span>Title</span>
+              <input
+                type="text"
+                maxLength={80}
+                value={shrine.title}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    shrines: doc.shrines.map((s) =>
+                      s.id === shrine.id ? { ...s, title: e.target.value } : s,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Body</span>
+              <textarea
+                rows={4}
+                maxLength={5000}
+                value={shrine.body}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    shrines: doc.shrines.map((s) =>
+                      s.id === shrine.id ? { ...s, body: e.target.value } : s,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Image URL (optional)</span>
+              <input
+                type="url"
+                value={shrine.imageUrl ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    shrines: doc.shrines.map((s) =>
+                      s.id === shrine.id
+                        ? { ...s, imageUrl: e.target.value || undefined }
+                        : s,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Image alt text (optional)</span>
+              <input
+                type="text"
+                maxLength={200}
+                value={shrine.imageAlt ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    shrines: doc.shrines.map((s) =>
+                      s.id === shrine.id
+                        ? { ...s, imageAlt: e.target.value || undefined }
+                        : s,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="btn secondary studio-remove"
+              onClick={() => onChange({ ...doc, shrines: doc.shrines.filter((s) => s.id !== shrine.id) })}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {doc.shrines.length < 5 && (
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() =>
+              onChange({
+                ...doc,
+                shrines: [
+                  ...doc.shrines,
+                  {
+                    id: newId(),
+                    title: "New shrine",
+                    body: "Write about something you love…",
+                  },
+                ],
+              })
+            }
+          >
+            Add shrine
+          </button>
+        )}
+      </fieldset>
+
+      <fieldset className="studio-fieldset">
+        <legend>Playlist</legend>
+        <p className="studio-hint">Outbound links only — no embeds or autoplay.</p>
+        {doc.playlist.map((track) => (
+          <div key={track.id} className="studio-card">
+            <label className="field">
+              <span>Track title</span>
+              <input
+                type="text"
+                maxLength={120}
+                value={track.title}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    playlist: doc.playlist.map((t) =>
+                      t.id === track.id ? { ...t, title: e.target.value } : t,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>URL</span>
+              <input
+                type="url"
+                value={track.url}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    playlist: doc.playlist.map((t) =>
+                      t.id === track.id ? { ...t, url: e.target.value } : t,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="btn secondary studio-remove"
+              onClick={() => onChange({ ...doc, playlist: doc.playlist.filter((t) => t.id !== track.id) })}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {doc.playlist.length < 20 && (
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() =>
+              onChange({
+                ...doc,
+                playlist: [
+                  ...doc.playlist,
+                  { id: newId(), title: "New track", url: "https://example.com/track" },
+                ],
+              })
+            }
+          >
+            Add track
+          </button>
+        )}
+      </fieldset>
+
+      <fieldset className="studio-fieldset">
+        <legend>Pixel art</legend>
+        <p className="studio-hint">Small owner-made grids — default 8×8, up to 24×24.</p>
+        {doc.pixelArt.map((piece) => (
+          <div key={piece.id} className="studio-card">
+            <label className="field">
+              <span>Title (optional)</span>
+              <input
+                type="text"
+                maxLength={80}
+                value={piece.title ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    pixelArt: doc.pixelArt.map((p) =>
+                      p.id === piece.id ? { ...p, title: e.target.value || undefined } : p,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <div className="studio-pixel-size-row">
+              <label className="field">
+                <span>Width</span>
+                <input
+                  type="number"
+                  min={4}
+                  max={24}
+                  value={piece.width}
+                  onChange={(e) => {
+                    const width = Math.min(24, Math.max(4, Number(e.target.value) || 4));
+                    onChange({
+                      ...doc,
+                      pixelArt: doc.pixelArt.map((p) =>
+                        p.id === piece.id
+                          ? {
+                              ...p,
+                              width,
+                              pixels: resizePixelGrid(width, p.height, p.width, p.height, p.pixels),
+                            }
+                          : p,
+                      ),
+                    });
+                  }}
+                />
+              </label>
+              <label className="field">
+                <span>Height</span>
+                <input
+                  type="number"
+                  min={4}
+                  max={24}
+                  value={piece.height}
+                  onChange={(e) => {
+                    const height = Math.min(24, Math.max(4, Number(e.target.value) || 4));
+                    onChange({
+                      ...doc,
+                      pixelArt: doc.pixelArt.map((p) =>
+                        p.id === piece.id
+                          ? {
+                              ...p,
+                              height,
+                              pixels: resizePixelGrid(p.width, height, p.width, p.height, p.pixels),
+                            }
+                          : p,
+                      ),
+                    });
+                  }}
+                />
+              </label>
+            </div>
+            <PixelArtGridEditor
+              piece={piece}
+              onChange={(pixels) =>
+                onChange({
+                  ...doc,
+                  pixelArt: doc.pixelArt.map((p) => (p.id === piece.id ? { ...p, pixels } : p)),
+                })
+              }
+            />
+            <button
+              type="button"
+              className="btn secondary studio-remove"
+              onClick={() => onChange({ ...doc, pixelArt: doc.pixelArt.filter((p) => p.id !== piece.id) })}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {doc.pixelArt.length < 10 && (
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => onChange({ ...doc, pixelArt: [...doc.pixelArt, defaultPixelArtPiece()] })}
+          >
+            Add pixel art
+          </button>
+        )}
+      </fieldset>
+
+      <fieldset className="studio-fieldset">
+        <legend>Mini-pages</legend>
+        <p className="studio-hint">Linked sub-pages at /@you/p/slug</p>
+        {doc.miniPages.map((page) => (
+          <div key={page.id} className="studio-card">
+            <label className="field">
+              <span>Slug</span>
+              <input
+                type="text"
+                maxLength={80}
+                value={page.slug}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    miniPages: doc.miniPages.map((p) =>
+                      p.id === page.id ? { ...p, slug: e.target.value } : p,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Title</span>
+              <input
+                type="text"
+                maxLength={120}
+                value={page.title}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    miniPages: doc.miniPages.map((p) =>
+                      p.id === page.id ? { ...p, title: e.target.value } : p,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Intro</span>
+              <textarea
+                rows={2}
+                maxLength={500}
+                value={page.intro}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    miniPages: doc.miniPages.map((p) =>
+                      p.id === page.id ? { ...p, intro: e.target.value } : p,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Body</span>
+              <textarea
+                rows={4}
+                maxLength={20000}
+                value={page.body}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    miniPages: doc.miniPages.map((p) =>
+                      p.id === page.id ? { ...p, body: e.target.value } : p,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="btn secondary studio-remove"
+              onClick={() => onChange({ ...doc, miniPages: doc.miniPages.filter((p) => p.id !== page.id) })}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {doc.miniPages.length < 10 && (
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() =>
+              onChange({
+                ...doc,
+                miniPages: [
+                  ...doc.miniPages,
+                  {
+                    id: newId(),
+                    slug: `page-${doc.miniPages.length + 1}`,
+                    title: "New mini-page",
+                    intro: "",
+                    body: "",
+                  },
+                ],
+              })
+            }
+          >
+            Add mini-page
+          </button>
+        )}
+      </fieldset>
+
+      <fieldset className="studio-fieldset">
         <legend>Tags</legend>
         <div className="studio-tag-row">
           <input
@@ -1075,15 +1558,67 @@ function ContentTab({
   );
 }
 
+function PixelArtGridEditor({
+  piece,
+  onChange,
+}: {
+  piece: PixelArtPiece;
+  onChange: (pixels: PixelArtPiece["pixels"]) => void;
+}) {
+  const setPixel = (index: number, color: string) => {
+    const next = [...piece.pixels];
+    next[index] = color === "transparent" ? "transparent" : color;
+    onChange(next as PixelArtPiece["pixels"]);
+  };
+
+  return (
+    <div
+      className="studio-pixel-grid"
+      style={{ gridTemplateColumns: `repeat(${piece.width}, 1fr)` }}
+      role="group"
+      aria-label="Pixel grid editor"
+    >
+      {piece.pixels.map((color, index) => (
+        <label key={index} className="studio-pixel-cell" title={`Pixel ${index + 1}`}>
+          <input
+            type="color"
+            value={color === "transparent" ? "#000000" : color}
+            onChange={(e) => setPixel(index, e.target.value)}
+          />
+          <button
+            type="button"
+            className="studio-pixel-clear"
+            aria-label={`Clear pixel ${index + 1}`}
+            onClick={() => setPixel(index, "transparent")}
+          >
+            ×
+          </button>
+          <span
+            className="studio-pixel-preview"
+            style={{ background: color === "transparent" ? "transparent" : color }}
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function AccessTab({
   document: doc,
   onChange,
   warnings,
+  handle,
 }: {
   document: PageDocument;
   onChange: (d: PageDocument) => void;
   warnings: string[];
+  handle: string;
 }) {
+  const cssScope = useMemo(
+    () => scopeProfileCss(doc.theme.customCss, profileScopeClass(handle)),
+    [doc.theme.customCss, handle],
+  );
+
   return (
     <>
       <h2 className="studio-section-title">Access</h2>
@@ -1133,6 +1668,54 @@ function AccessTab({
           ))}
         </ul>
       )}
+
+      <fieldset className="studio-fieldset">
+        <legend>Advanced CSS</legend>
+        <p className="studio-warning">
+          Custom CSS is scoped to your page only. Avoid layout-breaking rules, fixed overlays, or
+          selectors targeting the whole site. Blocked rules will not apply when published.
+        </p>
+        <label className="studio-toggle">
+          <input
+            type="checkbox"
+            checked={doc.theme.customCssEnabled}
+            onChange={(e) =>
+              onChange({ ...doc, theme: { ...doc.theme, customCssEnabled: e.target.checked } })
+            }
+          />
+          <span>Enable custom CSS on your live page</span>
+        </label>
+        <label className="field">
+          <span>Custom CSS</span>
+          <textarea
+            rows={8}
+            maxLength={8000}
+            value={doc.theme.customCss}
+            disabled={!doc.theme.customCssEnabled}
+            placeholder={`.bio { letter-spacing: 0.02em; }\n.panel { border-radius: 12px; }`}
+            onChange={(e) =>
+              onChange({ ...doc, theme: { ...doc.theme, customCss: e.target.value } })
+            }
+          />
+        </label>
+        {cssScope.warnings.length > 0 && (
+          <ul className="studio-warning-list">
+            {cssScope.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        )}
+        {cssScope.rejected.length > 0 && (
+          <ul className="studio-warning-list">
+            {cssScope.rejected.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        )}
+        {doc.theme.customCssEnabled && cssScope.css && cssScope.rejected.length === 0 && (
+          <p className="studio-hint mono">Scoped preview: {cssScope.css.split("\n").length} rule(s) OK</p>
+        )}
+      </fieldset>
     </>
   );
 }
