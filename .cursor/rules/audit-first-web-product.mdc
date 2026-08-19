@@ -1,0 +1,211 @@
+---
+description: Audit-first workflow for security-sensitive Webroom changes — plan before code, test before implementation, adversarial review before merge.
+globs:
+  - "webroom/app/**/*.{ts,tsx,js,jsx}"
+  - "webroom/app/src/lib/**/*.sql"
+  - "webroom/app/**/*.test.ts"
+  - "webroom/app/**/*.test.tsx"
+  - "app/**/*.{ts,tsx,js,jsx}"
+  - "src/**/*.{ts,tsx,js,jsx}"
+  - "server/**/*.{ts,js}"
+  - "db/**/*.{ts,js,sql}"
+  - "migrations/**/*"
+  - "tests/**/*.{ts,tsx,js,jsx}"
+  - "**/*.{test,spec}.{ts,tsx,js,jsx}"
+alwaysApply: true
+---
+
+# Audit-first operating rule
+
+For every non-trivial change:
+
+1. PLAN ONLY FIRST. Do not edit code, create files, run migrations, install packages,
+   modify schemas, or execute destructive commands until the user explicitly approves
+   the written plan.
+
+2. Before proposing a plan, inspect the relevant code paths and report:
+   - Entry points: route, server action, worker, CLI, migration, or UI event
+   - Trust boundary: client input, AI output, remote URL, uploaded file, database data,
+     admin/moderator input, or federated content
+   - Authorization and ownership checks
+   - Data reads/writes and transaction boundaries
+   - Existing validation and test coverage
+   - External side effects: feed events, emails, cache invalidation, file writes, jobs
+   - Failure/rollback behavior
+   - Security and data-integrity risks
+
+3. Every plan must contain:
+   - Goal and explicit non-goals
+   - Files to modify, with purpose for each
+   - Exact behavior changes
+   - Test matrix, including negative and boundary cases
+   - Migration strategy and rollback plan when persistence changes
+   - Compatibility impact for existing users and stored data
+   - Acceptance criteria
+   - Open questions or assumptions
+   - End with: WAITING FOR APPROVAL
+
+4. After approval, use test-first repair:
+   - Add focused regression tests before implementation.
+   - Run the focused tests and confirm the new tests fail for the expected reason.
+   - Do not weaken, delete, skip, snapshot blindly, or rewrite tests to hide failures.
+   - Implement the smallest correct change.
+   - Run focused tests, then lint, typecheck, build, and the relevant full suite.
+
+5. Treat these as high-risk changes requiring an adversarial audit:
+   - Authentication, authorization, ownership, roles, moderation
+   - Visibility, publishing, feeds, search indexing, notifications
+   - AI-generated or AI-parsed content
+   - HTML, CSS, embeds, URL parsing, SSRF, federation, redirects
+   - File uploads, MIME validation, body-size limits, storage paths
+   - Database migrations, deletes, imports, backfills, plugin installation data
+   - Pagination, ordering, cursors, concurrency, transactions, idempotency
+   - User messages, privacy, blocking, reporting, and audit logs
+
+6. Security requirements:
+   - Enforce security and business rules on the server; client checks are UX only.
+   - Parse structured input; never make security decisions from raw string prefixes.
+   - Validate all untrusted input at the boundary and normalize before storage.
+   - Use allowlists for AI-editable fields, external hosts, embeds, CSS properties,
+     and resource types.
+   - Preserve user visibility/privacy choices unless the user explicitly changes them.
+   - Use stable ordering plus a unique tie-breaker for every cursor pagination query.
+   - Use a transaction for every multi-step write that must succeed or fail together.
+   - Never use destructive migrations that silently discard user data.
+   - Enforce request-size limits while streaming or reading bodies, not only from headers.
+   - Return controlled client errors for malformed input; never leak internals.
+
+7. Migration requirements:
+   - Inspect current schema and production-like fixtures first.
+   - Preserve legacy rows unless explicit user-approved deletion is required.
+   - Include forward migration, verification query/test, and rollback/recovery notes.
+   - Check row counts and key constraints before replacing or dropping a legacy table.
+
+8. End every implementation with a diff audit that reports:
+   - Files changed and why
+   - Tests added and exact commands/results
+   - Remaining risks and untested paths
+   - Security/privacy impact
+   - Migration/data impact
+   - Release recommendation: BLOCKED, CONDITIONAL, or READY
+
+9. Never:
+   - Make broad refactors while fixing a defect.
+   - Change visibility/publication state as an incidental side effect.
+   - Bypass validation, sanitization, authorization, or test failures for convenience.
+   - Drop, truncate, overwrite, or silently re-create user-data tables.
+   - Run destructive commands without showing the command and requesting confirmation.
+   - Claim a fix is complete without test evidence.
+
+## Operating loop (one risk-bounded slice at a time)
+
+1. **Audit** — map entry points, trust boundaries, affected data, authorization rules, failure paths, and existing tests.
+2. **Plan** — file-level implementation plan, test plan, migration/rollback plan, explicit non-goals.
+3. **Approve** — user approves before any file edits.
+4. **Prove failure** — regression tests that reproduce the defect; confirm they fail on current branch.
+5. **Implement minimally** — smallest change that makes tests pass.
+6. **Verify** — focused tests, then lint, typecheck, build, relevant full suite.
+7. **Adversarial audit** — inspect diff for bypasses, races, auth regressions, partial writes, pagination instability, data loss.
+8. **Commit** — one coherent reversible commit; request external review only after evidence is clean.
+
+## Required Change Audit template
+
+```md
+# Change Audit
+
+## Scope
+- User-visible goal:
+- Non-goals:
+- Affected feature boundary:
+
+## Code map
+- Entry point(s):
+- Server/action/route path:
+- Database tables and queries:
+- External services:
+- UI components:
+- Existing tests:
+
+## Trust and risk
+- Untrusted inputs:
+- Authorization/ownership rule:
+- Privacy/publication rule:
+- Side effects:
+- Failure modes:
+- Data-loss or partial-write risk:
+- Abuse cases:
+
+## Fix plan
+- Minimal files to change:
+- Regression tests to add first:
+- Implementation steps:
+- Migration and rollback plan:
+- Verification commands:
+
+## Acceptance criteria
+- [ ] Expected case passes
+- [ ] Invalid input fails safely
+- [ ] Unauthorized access is denied
+- [ ] Existing user data is preserved
+- [ ] Concurrent/retry behavior is safe
+- [ ] Focused and full checks pass
+
+WAITING FOR APPROVAL
+```
+
+## Standard prompts
+
+**Start any issue (plan only):**
+```
+Plan only. Do not write or edit code until I approve.
+
+Audit this issue as a security and data-integrity change:
+[PASTE ISSUE]
+
+Inspect the codebase and produce the required Change Audit.
+Identify the exact entry points, ownership checks, side effects, transaction boundaries,
+schema dependencies, existing tests, and likely bypasses.
+
+Propose the smallest patch. Include regression tests that must fail before implementation.
+End with WAITING FOR APPROVAL.
+```
+
+**After approving:**
+```
+Approved. Work in this order only:
+
+1. Add the focused regression tests.
+2. Run them and show that they fail for the expected pre-fix reason.
+3. Implement the smallest corrective change.
+4. Run focused tests, then lint, typecheck, build, and the relevant integration suite.
+5. Do not expand scope or refactor unrelated code.
+6. Finish with the required diff audit and release recommendation.
+```
+
+**Adversarial review before commit:**
+```
+Audit the current diff against main. Do not edit code.
+
+Assume a malicious user, malformed client, concurrent request, stale client state,
+or failed database/storage operation is involved.
+
+Look specifically for:
+- authorization and visibility regressions
+- SSRF or URL-parser bypasses
+- CSS/HTML/embed sandbox or policy bypasses
+- request-size and resource-exhaustion bypasses
+- partial writes and missing transactions
+- migration data loss
+- cursor pagination skips/duplicates
+- race conditions and incorrect post-insert reads
+- error paths that throw 500 instead of controlled 4xx responses
+
+Return findings ranked: BLOCKER, HIGH, MEDIUM, NIT.
+For every blocker/high finding, cite the file, symbol, attack/reproduction path,
+and smallest safe remediation. End with READY, CONDITIONAL, or BLOCKED.
+```
+
+## Release rule
+
+No new expressiveness feature ships unless it has an equally explicit safety boundary,
+recovery path, and abuse-case test suite.

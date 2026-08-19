@@ -174,3 +174,10 @@ pilot testers see when they clone the repo for its README/install docs).
   **Owner-directed post-V1 build scope:** hosted uploads, DMs, feed,
   recommendations, federation, self-hosting, allowlisted embeds, plugin
   marketplace, AI page assist — full code, no stubs.
+- **Audit-first workflow (Cursor)** — all non-trivial Webroom changes
+  follow plan-before-code, test-before-implementation, adversarial-review-
+  before-merge. Permanent rule: `.cursor/rules/audit-first-web-product.mdc`.
+  High-risk surfaces: publishing/visibility, custom CSS, uploads, embeds,
+  federation, messages, migrations, AI output. One risk-bounded slice per
+  branch; regression tests must fail before the fix; CodeRabbit (or
+  equivalent) review before merge — green CI is necessary but not sufficient.

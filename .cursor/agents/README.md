@@ -50,5 +50,6 @@ Ship with full code: hosted uploads, DMs, feed, recommendations, federation, sel
 3. **product-writer runs after** routes and env vars exist in code
 4. **auditor before verifier** — verifier only proves tests/build, not security
 5. **Every implementer** leaves: migration note, type note, test list, env note
+6. **Audit-first for non-trivial work** — follow `.cursor/rules/audit-first-web-product.mdc`: plan → approve → failing regression test → minimal fix → adversarial diff audit → external review (CodeRabbit) before merge
 
 See each agent file for full checklists.
