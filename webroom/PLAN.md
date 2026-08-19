@@ -1,10 +1,18 @@
 # Webroom
 
-**A simple place to make and explore personal homepages.** People create a
-page that feels like them, publish it safely, and wander through other
-people's pages without feeds, algorithms, or pressure to perform.
+**A modern, safer MySpace-style social network.** Every person gets a
+profile-page home they can radically customize, discover through browsing
+and friend links, and fill with digital artifacts — music, badges,
+guestbook entries, shrines, pixel art, playlists, blogs, and mini-pages.
+The goal is to preserve creative ownership and imperfect personality,
+while making customization approachable, reversible, mobile-friendly, and
+safe.
 
 > Make your corner of the internet. Keep it yours.
+
+The core question is never *"what are you posting today?"* It's:
+
+> **What does your corner of the internet feel like?**
 
 ```
 Make → Shape → Publish → Wander
@@ -16,29 +24,41 @@ dedicated repository yet — see "A note on where this lives" at the bottom.
 
 ## What it is
 
-Not social media with feeds, DMs, trends, and engagement scores. Not a full
-website builder or code sandbox either.
+Not social media with feeds, DMs, trends, short-form video, ads, and
+engagement scores. Not a full website builder or code sandbox either.
 
-It is a **personal-page platform**: make a public page, choose a visual
-mood, add a few meaningful sections, change it over time, browse other
-handmade pages, and keep ownership of what you made — export it, and it's
-still yours.
+It's the blend MySpace-era personal publishing actually was, rebuilt safe
+and modern:
+
+- MySpace profiles and Top 8
+- Neocities/GeoCities-style personal sites
+- Tumblr-era fandom and aesthetic blogging
+- Early-web guestbooks, web rings, blinkies, and badges
+- Modern component editing, live previews, accessibility checks, and
+  responsive design
+
+**Core concept — Personal Webspaces.** Each account gets a customizable
+URL (`webroom.example/@yourname`) and a profile built from editable
+modules, not a fixed feed template. People find each other by browsing,
+by wandering discovery paths, and by **friend links** — a real, visible
+social graph, not a follower count optimized for growth.
 
 Accessibility is part of the product contract, not a later feature: every
-page needs a readable, keyboard-usable fallback even when its decoration is
-highly expressive (WCAG 2.2 is the relevant standard here).
+page needs a readable, keyboard-usable fallback even when its decoration
+is highly expressive (WCAG 2.2 is the relevant standard here).
 
 ## The four screens, and nothing else in V1
 
 | Screen | Verb | Purpose |
 |---|---|---|
-| **Explore** | Wander | Discover pages, tags, collections, web rings |
+| **Explore** | Wander | Discover pages by tag, web ring, random, and friend links |
 | **Make** | Create | Start a page from a short guided flow |
 | **My Page** | Publish | View and share your public space |
 | **Studio** | Shape | Change appearance, content, and layout |
 
-No feed, marketplace, DMs, trend screen, notification center, analytics
-dashboard, plugin screen, or federation controls in V1.
+No infinite feed, marketplace, DMs, trend screen, notification center,
+creator-analytics dashboard, plugin screen, or federation controls in V1.
+Friends are a graph you browse, not a feed you're fed.
 
 ## First five minutes
 
@@ -46,7 +66,7 @@ dashboard, plugin screen, or federation controls in V1.
    Clean Portfolio, or start simple. A starting mood, not a final answer.
 2. **Add your name and one sentence.** That's the whole "who are you" step.
 3. **Pick what belongs on your page** — about me, links, what you're
-   making, gallery, guestbook, top 8, badges.
+   making, gallery, guestbook, friends, top 8, badges.
 4. **Publish.** Live at `webroom/@yourname`. Keep editing any time.
 
 A first-time user should be able to publish a readable page in under five
@@ -58,11 +78,23 @@ Not "widgets" — the actual things people put in their own space. Each one
 ships with a mobile layout, a Reader Mode version, keyboard support, and
 privacy settings from day one:
 
-**Identity** (name, avatar, bio, status) · **Links** (curated external
-links) · **Now** (what you're making, playing, feeling) · **Gallery** (a
-few images with descriptions) · **Devlog** (short dated updates) ·
-**Guestbook** (owner-approved messages) · **Top 8** (favorite people or
-pages) · **Badges** (stamps, collections, web rings)
+**Identity** (name, avatar, bio, status) · **Friends** (the real social
+graph — sent/accepted links, publicly browsable) · **Links** (curated
+external links) · **Now** (what you're making, playing, feeling) ·
+**Gallery** (a few images with descriptions) · **Blog** (longer posts,
+own permalink, own feed) · **Devlog** (short dated updates) · **Guestbook**
+(owner-approved messages) · **Top 8** (a curated highlight reel pulled
+from your Friends, not a separate list to maintain) · **Badges** (stamps,
+collections, web rings) · **Shrine** (a dedicated small page devoted to
+one thing you love) · **Playlist** (an ordered list of tracks/embeds, no
+autoplay) · **Pixel Art** (a small canvas of owner-made or collected pixel
+pieces) · **Mini-page** (a linked sub-page with its own layout — for a
+project, an event, a shrine that outgrew a module)
+
+Friends and Top 8 are related but distinct: **Friends** is the real graph
+— the thing people actually link to and browse through. **Top 8** is a
+curated *subset* of your friends you choose to feature, exactly like the
+original — it draws from the graph, it doesn't duplicate it.
 
 ## The Studio
 
@@ -70,9 +102,9 @@ Five tabs, no freeform drag-everything canvas. Ordered sections produce
 better pages, work better on mobile, and stay accessible by construction.
 
 **Look** (colors, background, text style, mood) · **Layout** (section
-order, spacing, density) · **Content** (name, bio, links, gallery,
-guestbook) · **Access** (Reader Mode, contrast, motion, alt text) ·
-**Publish** (save, share, restore a version, export)
+order, spacing, density) · **Content** (name, bio, links, gallery, blog,
+guestbook, friends) · **Access** (Reader Mode, contrast, motion, alt
+text) · **Publish** (save, share, restore a version, export)
 
 ## The underlying layer: what this inherits from gateway-probe
 
@@ -100,12 +132,22 @@ automatic redirects, third-party embeds/remote scripts, hidden
 report/block controls, autoplay media (V1).
 
 **Allowed in V1:** structured text, approved links, validated images,
-theme colors and approved fonts, background styles, section ordering,
-badges/stamps/decorative assets.
+validated audio file uploads, theme colors and approved fonts, background
+styles, section ordering, badges/stamps/decorative assets.
 
 Untrusted content is handled as data in the correct output context, never
 inserted directly into HTML, script, CSS, or URLs (OWASP's XSS prevention
 guidance is the relevant reference).
+
+**Resolving one real tension up front:** "no third-party embeds" and
+"Playlist page part" would contradict each other if Playlist meant
+embedding a Spotify/YouTube player — that's exactly the remote-script
+surface the rules above exist to close. So Playlist in V1 means
+Webroom-hosted audio file uploads (validated file type/size, no
+executable content) or plain outbound links to an external service,
+rendered the same as any other Link — never an embedded third-party
+player. Revisit only if a specific, sandboxable, script-free embed format
+is found later; don't quietly relax this for convenience.
 
 ## Reader Mode & Safe Preview
 
@@ -121,11 +163,22 @@ The two most important safety features:
 
 ## Discovery
 
-Recently redecorated pages, browse-by-feeling, browse-by-interest, a
-random page, and web rings — curated and moderated, not algorithmically
-ranked. Public does not automatically mean searchable, featured, or
-recommended; that separation is what keeps moderation manageable at any
-size.
+Four ways to find a page, none of them a ranked feed:
+
+- **Wander** — recently redecorated pages, browse-by-feeling,
+  browse-by-interest, random page.
+- **Web rings** — curated topic/community chains, the old-web way.
+- **Friend links** — browse outward from a page you already like: see
+  their friends, see *their* friends. This is the MySpace-native
+  discovery path, and it's graph-walking by the visitor's own choice, not
+  an algorithm deciding what they see next.
+- **Direct** — someone just tells you `@theirhandle`.
+
+All curated and moderated, never algorithmically ranked. Public does not
+automatically mean searchable, featured, or recommended; that separation
+is what keeps moderation manageable at any size — including friend-graph
+browsing, which respects each page's own visibility settings (a private
+or unlisted friend doesn't show up in someone else's public graph walk).
 
 ## Moderation (V1)
 
@@ -134,7 +187,9 @@ guestbook contact.
 
 **Creators:** guestbook approval, private/unlisted/public, hide from
 search, disable guestbook, panic mode (hide page from discovery quickly),
-restore a previous version, export page data.
+restore a previous version, export page data. Friend links require both
+sides to accept — a request is never a public relationship until
+approved — and a blocked account can't send one.
 
 **Platform:** report review queue, rate limits, asset validation, a clear
 community policy, moderator logs, appeals.
@@ -147,18 +202,22 @@ operations behind it. Do not decentralize at launch.
 
 ### Phase 1 — Make a page *(start here)*
 
-Account and handle · structured profile data · identity/links/now page
-parts · three templates · public profile URL · mobile renderer · Reader
-Mode · publish/unpublish.
+Account and handle · structured profile data · identity/links/now/friends
+page parts · mutual-accept friend requests · three templates · public
+profile URL · mobile renderer · Reader Mode · publish/unpublish.
 
-**Success test:** a first-time user publishes a readable page in under
-five minutes.
+Friends is in Phase 1, not later — it's core to what Webroom is (a real
+graph, browsable), not an add-on social feature bolted onto a homepage
+builder.
+
+**Success test:** a first-time user publishes a readable page and sends
+one friend link in under five minutes.
 
 ### Phase 2 — Shape a page
 
 Theme controls · template selection · colors/fonts/panels/density ·
 page-part order · desktop/mobile preview · undo · save version · restore
-version.
+version · gallery, blog, and top 8 (curated from friends) page parts.
 
 **Success test:** test users make pages that visibly differ without
 touching code.
@@ -167,26 +226,30 @@ touching code.
 
 Image descriptions · contrast warnings · reduced-motion support · Safe
 Preview · export/import · hide from discovery · private/unlisted/public ·
-block and report.
+block and report · friend-request blocking and mutual-accept enforcement.
 
 **Success test:** every public page stays readable and navigable through
-Reader Mode.
+Reader Mode, and a blocked account can't re-friend or re-contact.
 
 ### Phase 4 — Wander
 
 Recently decorated pages · tags · curated collections · random page · web
-rings · guestbooks with approval · rate limits · moderator queue.
+rings · friend-link graph browsing · guestbooks with approval · rate
+limits · moderator queue.
 
-**Success test:** visitors find interesting pages with no feed, and
-creators can avoid unwanted contact entirely.
+**Success test:** visitors find interesting pages with no feed — by tag,
+by ring, or by walking the friend graph — and creators can avoid
+unwanted contact entirely.
 
-### Phase 5 — Share themes *(later)*
+### Phase 5 — Rich modules and shared themes *(later)*
 
-Theme gallery · install · fork · attribution · theme version history ·
-theme reporting.
+Shrine, Playlist (upload-based, see Safety Rules), Pixel Art, and
+Mini-page modules · theme gallery · install and fork a theme ·
+attribution · theme version history · theme reporting.
 
-**Success test:** someone reuses and remixes a theme without losing
-creator credit or accessibility guarantees.
+**Success test:** someone builds a shrine or pixel-art piece, and someone
+else reuses and remixes a theme, without losing creator credit or
+accessibility guarantees.
 
 ## What V1 excludes
 
@@ -217,10 +280,13 @@ decided when there's enough real signal — not before:
 
 ## Closing
 
-Webroom is a safe place to build and explore personal homepages. Pick a
-feeling, add the parts of your life or work you want to share, and
-publish a page you can keep changing. Visitors find handmade spaces
-through tags, collections, web rings, and wandering — never a feed.
+Webroom is a modern, safer MySpace: a personal-page platform where
+creative ownership and imperfect personality come first. Pick a feeling,
+fill your page with the artifacts that are actually yours — music,
+badges, guestbook entries, shrines, pixel art, playlists, blogs, a shrine
+to your favorite band — and publish a page you can keep changing. People
+find each other through tags, web rings, wandering, and the friend links
+that make this a real social graph, not a feed.
 
 > Make your corner of the internet. Wander into someone else's.
 
