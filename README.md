@@ -12,6 +12,8 @@ automatic timed rollback (see below); it is never called by the probe itself.
 ## Quick start
 
 ```sh
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Auto-discover WAN interface, probe in idle mode
@@ -291,9 +293,15 @@ gateway-probe/
 ## Running tests
 
 ```sh
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
 ```
+
+(A venv avoids the "externally-managed-environment" error `pip install`
+raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
+[PEP 668](https://peps.python.org/pep-0668/).)
 
 ## Phase 1 acceptance criteria
 

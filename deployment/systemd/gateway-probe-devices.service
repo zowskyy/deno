@@ -8,7 +8,7 @@ Documentation=https://github.com/zowskyy/gateway-probe
 Type=oneshot
 User=gateway-probe
 Group=gateway-probe
-ExecStart=/usr/local/bin/gateway-probe-devices \
+ExecStart=/opt/gateway-probe/venv/bin/gateway-probe-devices \
   --store /var/lib/gateway-probe/devices.db
 
 StandardOutput=journal

@@ -23,14 +23,18 @@ cd gateway-probe
 # Create service user
 sudo useradd -r -s /usr/sbin/nologin gateway-probe
 
-# Install Python package
-sudo pip install -e .
+# Install into a dedicated virtualenv (plain `pip install` fails with
+# "externally-managed-environment" on Debian 12+ / Ubuntu 24.04+ — see
+# PEP 668 — and a system-wide install isn't appropriate for a service
+# that runs as its own unprivileged user anyway)
+sudo python3 -m venv /opt/gateway-probe/venv
+sudo /opt/gateway-probe/venv/bin/pip install -e .
 
-# Install systemd service files
+# Install systemd service files (they invoke the venv's binaries directly)
 sudo cp deployment/systemd/* /etc/systemd/system/
 sudo mkdir -p /etc/gateway-probe /var/lib/gateway-probe
 sudo touch /etc/gateway-probe/config.toml
-sudo chown -R gateway-probe:gateway-probe /var/lib/gateway-probe /etc/gateway-probe
+sudo chown -R gateway-probe:gateway-probe /var/lib/gateway-probe /etc/gateway-probe /opt/gateway-probe
 
 # Load and enable service
 sudo systemctl daemon-reload
@@ -121,7 +125,14 @@ systemctl start gateway-probe-api.service
 
 ### Install
 
+gateway-probe isn't published on PyPI — `pip install gateway-probe` will
+fail with "No matching distribution found". Copy the source to the router
+first, then install from that local path:
+
 ```bash
+# From your Linux/Mac machine, with the repo already cloned locally:
+scp -r gateway-probe root@192.168.1.1:/tmp/gateway-probe
+
 # SSH to router
 ssh root@192.168.1.1
 
@@ -129,15 +140,15 @@ ssh root@192.168.1.1
 opkg update
 opkg install python3-minimal python3-pip ca-bundle
 
-# Install gateway-probe
-pip install gateway-probe
+# Install gateway-probe from the copy you just transferred
+pip install /tmp/gateway-probe
 
 # Create directories
 mkdir -p /etc/config /overlay/gateway-probe
 chmod 755 /overlay/gateway-probe
 
 # Copy init script
-cp /path/to/deployment/openwrt/gateway-probe /etc/init.d/
+cp /tmp/gateway-probe/deployment/openwrt/gateway-probe /etc/init.d/
 chmod +x /etc/init.d/gateway-probe
 
 # Enable and start
