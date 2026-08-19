@@ -98,7 +98,7 @@ export function FriendActions({ handle, relationship }: Props) {
       {state.error && (
         <p className="friend-actions-error" role="alert">{state.error}</p>
       )}
-      <p className="friend-actions-status mono">You're friends.</p>
+      <p className="friend-actions-status mono">You&apos;re friends.</p>
       <button
         type="button"
         className="btn secondary friend-action-btn"

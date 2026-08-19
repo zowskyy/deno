@@ -16,6 +16,7 @@ export async function SiteNav() {
       <nav className="controls">
         <Link href="/explore">Explore</Link>
         <Link href="/make">Make</Link>
+        <Link href="/policy">Policy</Link>
         {viewer ? (
           <>
             <Link href={`/@${viewer.handle}`}>My Page</Link>

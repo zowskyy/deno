@@ -10,10 +10,16 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import {
   dismissReportAction,
+  dismissThemeReportAction,
+  dismissAppealAction,
+  grantAppealAction,
   platformBlockAction,
   platformUnblockAction,
   reviewReportAction,
+  reviewThemeReportAction,
 } from "./actions";
+import { listOpenAppeals } from "@/lib/appeals";
+import { listOpenThemeReports } from "@/lib/sharedThemes";
 
 export default async function ModerationPage() {
   ensureModeratorSeed();
@@ -23,6 +29,8 @@ export default async function ModerationPage() {
   if (!isModerator(viewer.id)) redirect("/");
 
   const reports = listOpenReports();
+  const themeReports = listOpenThemeReports();
+  const appeals = listOpenAppeals();
   const logs = listModeratorLogs(30);
 
   return (
@@ -101,6 +109,79 @@ export default async function ModerationPage() {
           })}
         </ul>
       )}
+
+      <section style={{ marginTop: "2.5rem" }}>
+        <h2>Theme reports</h2>
+        {themeReports.length === 0 ? (
+          <p className="empty-note">No open theme reports.</p>
+        ) : (
+          <ul style={{ listStyle: "none", padding: 0, margin: "1rem 0 0", display: "grid", gap: "1rem" }}>
+            {themeReports.map((report) => {
+              const reviewAction = reviewThemeReportAction.bind(null, report.id);
+              const dismissAction = dismissThemeReportAction.bind(null, report.id);
+              return (
+                <li
+                  key={report.id}
+                  style={{ border: "1px solid var(--line)", borderRadius: "var(--radius)", padding: "1rem" }}
+                >
+                  <p style={{ margin: 0, fontWeight: 600 }}>
+                    {report.themeName}
+                    <span className="mono" style={{ marginLeft: "0.5rem", fontSize: "0.8rem", color: "var(--ink-soft)" }}>
+                      {report.reason}
+                    </span>
+                  </p>
+                  <p className="mono" style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--ink-soft)" }}>
+                    {new Date(report.createdAt).toLocaleString()}
+                    {report.reporterHandle ? ` · reported by @${report.reporterHandle}` : " · anonymous"}
+                    {" · "}
+                    <Link href={`/explore/themes/${report.themeId}`}>View theme</Link>
+                  </p>
+                  <form action={reviewAction} style={{ marginTop: "0.75rem" }}>
+                    <textarea name="note" rows={2} placeholder="Moderator note (optional)" style={{ width: "100%", marginBottom: "0.5rem" }} />
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button type="submit" className="btn">Mark reviewed</button>
+                      <button type="submit" className="btn secondary" formAction={dismissAction}>Dismiss</button>
+                    </div>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section style={{ marginTop: "2.5rem" }}>
+        <h2>Appeals</h2>
+        {appeals.length === 0 ? (
+          <p className="empty-note">No open appeals.</p>
+        ) : (
+          <ul style={{ listStyle: "none", padding: 0, margin: "1rem 0 0", display: "grid", gap: "1rem" }}>
+            {appeals.map((appeal) => {
+              const grantAction = grantAppealAction.bind(null, appeal.id);
+              const dismissAction = dismissAppealAction.bind(null, appeal.id);
+              return (
+                <li
+                  key={appeal.id}
+                  style={{ border: "1px solid var(--line)", borderRadius: "var(--radius)", padding: "1rem" }}
+                >
+                  <p style={{ margin: 0, fontWeight: 600 }}>@{appeal.userHandle}</p>
+                  <p style={{ margin: "0.5rem 0 0" }}>{appeal.reason}</p>
+                  <p className="mono" style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--ink-soft)" }}>
+                    {new Date(appeal.createdAt).toLocaleString()} · {appeal.appealType.replace("_", " ")}
+                  </p>
+                  <form action={grantAction} style={{ marginTop: "0.75rem" }}>
+                    <textarea name="note" rows={2} placeholder="Moderator note (optional)" style={{ width: "100%", marginBottom: "0.5rem" }} />
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button type="submit" className="btn">Grant appeal</button>
+                      <button type="submit" className="btn secondary" formAction={dismissAction}>Dismiss</button>
+                    </div>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <section style={{ marginTop: "2.5rem" }}>
         <h2>Recent moderator actions</h2>

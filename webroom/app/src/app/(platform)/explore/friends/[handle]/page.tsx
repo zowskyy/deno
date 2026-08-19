@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { findUserByHandle } from "@/lib/auth";
 import { listPublicFriends } from "@/lib/friends";
+import { canViewPage, getPageDocument } from "@/lib/pageDocument";
 import { getCurrentUser } from "@/lib/session";
 
 interface Props {
@@ -16,6 +17,9 @@ export default async function ExploreFriendsPage({ params }: Props) {
   if (!user) notFound();
 
   const viewer = await getCurrentUser();
+  const stored = getPageDocument(user.id);
+  if (!canViewPage(stored, user.id, viewer?.id ?? null)) notFound();
+
   const viewerId = viewer?.id ?? null;
 
   const friends = listPublicFriends(user.id, viewerId);

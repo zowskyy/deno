@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { findUserByHandle } from "@/lib/auth";
 import { GuestbookError, signGuestbook } from "@/lib/guestbook";
-import { getPageDocument } from "@/lib/pageDocument";
+import { canViewPage, getPageDocument } from "@/lib/pageDocument";
 import { checkRateLimit, RateLimitError, rateLimitActorKey } from "@/lib/rateLimit";
 import { getCurrentUser } from "@/lib/session";
 
@@ -26,7 +26,12 @@ export async function signGuestbookAction(
   if (!owner) return { error: "This page isn't available." };
 
   const stored = getPageDocument(owner.id);
-  if (!stored?.isPublished || stored.guestbookDisabled || !stored.document.guestbook.enabled) {
+  if (
+    !stored ||
+    !canViewPage(stored, owner.id, viewer?.id ?? null) ||
+    stored.guestbookDisabled ||
+    !stored.document.guestbook.enabled
+  ) {
     return { error: "The guestbook isn't open right now." };
   }
 

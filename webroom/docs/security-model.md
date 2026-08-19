@@ -26,8 +26,9 @@ Passwords: scrypt. Session tokens: random 32-byte, hashed in DB, 30-day HTTP-onl
 
 - Friend requests require mutual accept
 - Blocks prevent requests, guestbook sign, and profile visibility
-- Rate limits on reports, guestbook, friend actions, theme fork/publish
-- Moderator queue for reports and theme reports
+- Rate limits on reports, guestbook, friend actions, theme fork/publish, login, signup, and appeals
+- Moderator queue for page reports, theme reports, and platform-block appeals
+- Private visibility is enforced on all page routes — not just discovery filters
 
 ## Threat model (MVP)
 

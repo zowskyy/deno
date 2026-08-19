@@ -174,5 +174,22 @@ CREATE TABLE IF NOT EXISTS theme_reports (
   reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   reason TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewed', 'dismissed'))
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewed', 'dismissed')),
+  moderator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  moderator_note TEXT,
+  reviewed_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS appeals (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  appeal_type TEXT NOT NULL CHECK (appeal_type IN ('platform_block')),
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'granted', 'dismissed')),
+  moderator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  moderator_note TEXT,
+  reviewed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status, created_at);

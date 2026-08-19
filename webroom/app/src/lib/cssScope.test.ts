@@ -24,6 +24,17 @@ describe("scopeProfileCss", () => {
     expect(result.rejected.some((r) => r.includes("body"))).toBe(true);
   });
 
+  it("rejects HTML tags in CSS", () => {
+    const result = scopeProfileCss("</style><script>alert(1)</script>", ".profile-scope--x");
+    expect(result.rejected.some((r) => r.includes("HTML"))).toBe(true);
+    expect(result.css).toBe("");
+  });
+
+  it("rejects absolute overlays with z-index", () => {
+    const result = scopeProfileCss(".trap { position: absolute; z-index: 9999; }", ".profile-scope--x");
+    expect(result.rejected.length).toBeGreaterThan(0);
+  });
+
   it("allows @media prefers-reduced-motion", () => {
     const result = scopeProfileCss(
       "@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }",

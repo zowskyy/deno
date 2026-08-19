@@ -12,6 +12,7 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /behavior\s*:/i,
   /url\s*\(\s*["']?\s*javascript:/i,
   /url\s*\(\s*["']?\s*data:/i,
+  /<\s*\/?\s*style/i,
 ];
 
 const BLOCKED_SELECTORS = /\b(html|body|:root|iframe|dialog|script|\.top-bar|\.studio-|#studio)\b/i;
@@ -30,6 +31,11 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
   const rejected: string[] = [];
 
   if (!raw.trim()) return { css: "", warnings, rejected };
+
+  if (raw.includes("<")) {
+    rejected.push("HTML tags are not allowed in custom CSS.");
+    return { css: "", warnings, rejected };
+  }
 
   if (raw.length > MAX_CSS_LENGTH) {
     rejected.push(`Custom CSS exceeds ${MAX_CSS_LENGTH} characters.`);
@@ -85,6 +91,11 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
       continue;
     }
 
+    if (/position\s*:\s*absolute/i.test(body) && /z-index/i.test(body)) {
+      rejected.push("Absolute overlays with z-index are not allowed.");
+      continue;
+    }
+
     const scopedSelector = selector
       .split(",")
       .map((s) => {
@@ -99,7 +110,23 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
     scoped.push(`${scopedSelector} { ${body} }`);
   }
 
+  if (rejected.length > 0) return { css: "", warnings, rejected };
+
   return { css: scoped.join("\n"), warnings, rejected };
+}
+
+/** Validate and scope custom CSS for a profile. Fails closed when any rule is rejected. */
+export function validateProfileCustomCss(
+  raw: string,
+  handle: string,
+): { ok: true; css: string; warnings: string[] } | { ok: false; error: string } {
+  if (!raw.trim()) return { ok: true, css: "", warnings: [] };
+  const scopeClass = `.${profileScopeClass(handle)}`;
+  const result = scopeProfileCss(raw, scopeClass);
+  if (result.rejected.length > 0) {
+    return { ok: false, error: result.rejected.join("; ") };
+  }
+  return { ok: true, css: result.css, warnings: result.warnings };
 }
 
 function scopeSelectors(block: string, scopeClass: string, rejected: string[]): string {

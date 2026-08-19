@@ -32,6 +32,11 @@ function migrate(db: DatabaseSync): void {
     db.exec("ALTER TABLE reports ADD COLUMN moderator_note TEXT");
     db.exec("ALTER TABLE reports ADD COLUMN reviewed_at TEXT");
   }
+  if (!columnExists(db, "theme_reports", "moderator_id")) {
+    db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_id TEXT REFERENCES users(id) ON DELETE SET NULL");
+    db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_note TEXT");
+    db.exec("ALTER TABLE theme_reports ADD COLUMN reviewed_at TEXT");
+  }
 }
 
 export function getDb(): DatabaseSync {

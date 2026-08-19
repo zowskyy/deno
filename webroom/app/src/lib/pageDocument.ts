@@ -216,6 +216,19 @@ export function discardDraft(userId: string): void {
   db.prepare("UPDATE page_documents SET draft_document_json = NULL WHERE user_id = ?").run(userId);
 }
 
+/** Whether a viewer may access a page (profile, blog, mini-pages, guestbook). */
+export function canViewPage(
+  stored: StoredPage | null,
+  ownerId: string,
+  viewerId: string | null,
+): boolean {
+  if (!stored) return false;
+  const isOwner = viewerId === ownerId;
+  if (!stored.isPublished && !isOwner) return false;
+  if (stored.visibility === "private" && !isOwner) return false;
+  return true;
+}
+
 export function getEffectiveDocument(stored: StoredPage, isOwner: boolean, safePreview: boolean): PageDocument {
   if (isOwner && safePreview && stored.draftDocument) return stored.draftDocument;
   return stored.document;

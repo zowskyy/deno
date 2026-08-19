@@ -154,7 +154,9 @@ pilot testers see when they clone the repo for its README/install docs).
 - **Webroom Phases 1–5 are complete** in `webroom/app` (Next.js/TypeScript,
   `node:sqlite`, Zod-validated page documents, module registry, scoped
   custom CSS, theme gallery). Signup → Make → Studio → publish → Explore
-  all work end-to-end with no stubs or dead links through Phase 5.
+  all work end-to-end. Release hardening includes visibility enforcement,
+  auth rate limits, community policy, appeals, and theme-report moderation.
+  **114 tests** passing as of the release build.
 - Friends (the mutual-accept graph) shipped as part of Phase 1, per the
   plan's explicit call that it's core to the product, not a later
   add-on.

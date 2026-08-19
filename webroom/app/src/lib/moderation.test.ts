@@ -13,6 +13,7 @@ import {
 import { fileReport } from "./reports";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
+process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
 
 beforeEach(() => {
   resetDbForTests();
@@ -34,6 +35,26 @@ describe("ensureModeratorSeed", () => {
     ensureModeratorSeed();
     expect(isModerator(a.id)).toBe(true);
     expect(isModerator(b.id)).toBe(false);
+  });
+
+  it("promotes WEBROOM_MODERATOR_HANDLE when set", () => {
+    delete process.env.WEBROOM_AUTO_MODERATOR_SEED;
+    createUser("voidarcade", "correct-horse-battery");
+    const target = createUser("modtarget", "correct-horse-battery");
+    process.env.WEBROOM_MODERATOR_HANDLE = "modtarget";
+    ensureModeratorSeed();
+    expect(isModerator(target.id)).toBe(true);
+    delete process.env.WEBROOM_MODERATOR_HANDLE;
+    process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
+  });
+
+  it("skips auto-seed when neither env is set", () => {
+    delete process.env.WEBROOM_AUTO_MODERATOR_SEED;
+    delete process.env.WEBROOM_MODERATOR_HANDLE;
+    const a = createUser("voidarcade", "correct-horse-battery");
+    ensureModeratorSeed();
+    expect(isModerator(a.id)).toBe(false);
+    process.env.WEBROOM_AUTO_MODERATOR_SEED = "true";
   });
 });
 
