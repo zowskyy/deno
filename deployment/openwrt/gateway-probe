@@ -7,6 +7,7 @@ STOP=10
 PROG="/usr/local/bin/gateway-probe-serve"
 CONFIG="/etc/config/gateway-probe"
 DB="/overlay/gateway-probe/reports.db"
+DEVICE_DB="/overlay/gateway-probe/devices.db"
 
 config_load gateway_probe
 
@@ -20,6 +21,7 @@ start_service() {
     procd_open_instance
     procd_set_param command "$PROG" \
         --store "$DB" \
+        --device-store "$DEVICE_DB" \
         --host "$bind_address" \
         --port "$port"
 

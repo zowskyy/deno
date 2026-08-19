@@ -165,6 +165,18 @@ as the Linux deployment; see the example above and schedule it with cron
 (OpenWrt's `procd` init scripts are best suited to long-running daemons
 like the dashboard, not short periodic jobs).
 
+To also see device history and activity in the dashboard, wire
+`--device-store` into the init script's `command` line (or run
+`gateway-probe-serve` manually with it), and schedule the device scan
+itself with cron, same as the health probe:
+
+```bash
+# /etc/crontabs/root
+*/15 * * * * gateway-probe --config /etc/gateway-probe/config.toml --store /overlay/gateway-probe/reports.db
+*/15 * * * * gateway-probe-devices --store /overlay/gateway-probe/devices.db
+/etc/init.d/cron restart
+```
+
 ### Daemon operation
 
 The service runs as a procd-managed daemon:

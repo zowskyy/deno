@@ -9,6 +9,7 @@ User=gateway-probe
 Group=gateway-probe
 ExecStart=/usr/local/bin/gateway-probe-serve \
   --store /var/lib/gateway-probe/reports.db \
+  --device-store /var/lib/gateway-probe/devices.db \
   --host 127.0.0.1 \
   --port 8734
 

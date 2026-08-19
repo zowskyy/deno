@@ -249,6 +249,29 @@ class TestDevicesEndpoint:
         assert body["devices"][0]["mac"] == "3C:5A:B4:12:34:56"
         assert body["devices"][0]["vendor"] == "Apple"
 
+    def test_includes_recent_events_across_scans(self, running_server_with_devices):
+        base_url, device_db_path = running_server_with_devices
+        conn = open_device_store(device_db_path)
+        diff_and_save(
+            conn,
+            [{"ip": "192.168.1.5", "mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}],
+            "2026-01-01T00:00:00Z",
+        )
+        diff_and_save(
+            conn,
+            [
+                {"ip": "192.168.1.5", "mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"},
+                {"ip": "192.168.1.6", "mac": "11:22:33:44:55:66", "vendor": None, "type": "unknown_vendor"},
+            ],
+            "2026-01-02T00:00:00Z",
+        )
+        conn.close()
+
+        status, body = _get(base_url + "/api/devices")
+        assert status == 200
+        assert len(body["recent_events"]) == 1
+        assert body["recent_events"][0]["event_type"] == "device_new"
+
     def test_reports_endpoint_still_works_alongside_devices(self, running_server_with_devices):
         # Regression guard: adding /api/devices must not disturb the
         # existing report-store handling in the same do_GET.

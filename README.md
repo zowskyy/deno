@@ -175,6 +175,15 @@ address bit, not a heuristic. Without `--store`, it just shows the current
 snapshot; with it, repeated runs against the same file build a baseline and
 flag genuinely new devices.
 
+Run it on a schedule (`deployment/systemd/gateway-probe-devices.{service,timer}`
+on Linux, cron on OpenWrt — see `deployment/DEPLOYMENT.md`) and it builds an
+activity timeline, not just a snapshot: a device joining for the first time,
+a known device going quiet, or a known device coming back are each recorded
+once, as they happen — not repeated every scan a device stays away. View it
+on the same local dashboard as the health reports (`gateway-probe-serve
+--device-store devices.db`), under "Devices on your network" and "Recent
+activity."
+
 This is intentionally a separate, small primitive rather than a bundled
 "do everything" feature — see `git log` on `probe/devices*.py` for the
 scoping rationale.

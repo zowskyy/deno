@@ -73,6 +73,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"  {d['mac']}  ({label})  at {d.get('ip', '?')}", file=sys.stderr)
 
+    if report["missing_devices"]:
+        print("\nHaven't been seen since last scan:", file=sys.stderr)
+        for mac in report["missing_devices"]:
+            print(f"  {mac}", file=sys.stderr)
+
     return 0
 
 

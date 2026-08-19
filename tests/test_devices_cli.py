@@ -17,7 +17,10 @@ def _fake_report(**overrides) -> dict:
         "devices": [{"ip": "192.168.1.5", "mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}],
         "new_device_count": None,
         "new_devices": None,
+        "missing_device_count": None,
+        "missing_devices": None,
         "is_first_scan": None,
+        "events_this_scan": None,
         "summary": "You have 1 device connected: 1 Apple.",
     }
     report.update(overrides)
@@ -93,3 +96,19 @@ class TestNewDevicesDisplay:
         cli_mod.main([])
         err = capsys.readouterr().err
         assert "New devices:" not in err
+
+
+class TestMissingDevicesDisplay:
+    def test_missing_devices_are_listed_on_stderr(self, monkeypatch, capsys):
+        report = _fake_report(missing_devices=["AA:BB:CC:DD:EE:FF"])
+        monkeypatch.setattr(cli_mod, "build_device_report", lambda **kw: report)
+        cli_mod.main([])
+        err = capsys.readouterr().err
+        assert "AA:BB:CC:DD:EE:FF" in err
+        assert "Haven't been seen since last scan:" in err
+
+    def test_no_missing_devices_section_when_none(self, monkeypatch, capsys):
+        monkeypatch.setattr(cli_mod, "build_device_report", lambda **kw: _fake_report(missing_devices=None))
+        cli_mod.main([])
+        err = capsys.readouterr().err
+        assert "Haven't been seen" not in err

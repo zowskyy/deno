@@ -52,6 +52,9 @@
   <h2>Devices on your network</h2>
   <div id="devices">Loading…</div>
 
+  <h2>Recent activity</h2>
+  <div id="activity">Loading…</div>
+
   <p id="storage"></p>
   <p id="status"></p>
 
@@ -143,12 +146,38 @@ function renderDevices(data) {
   }
 
   const rows = data.devices.map(d =>
-    `<tr><td>${esc(deviceLabel(d))}</td><td>${esc(d.last_ip || "—")}</td><td>${timeAgo(d.last_seen)}</td></tr>`
+    `<tr class="${d.present ? "" : "warn"}"><td>${esc(deviceLabel(d))}</td><td>${esc(d.last_ip || "—")}</td><td>${timeAgo(d.last_seen)}</td><td>${d.present ? "here now" : "not seen currently"}</td></tr>`
   ).join("");
 
+  const presentCount = data.devices.filter(d => d.present).length;
+
   el.innerHTML =
-    `<p>${data.device_count} device${data.device_count === 1 ? "" : "s"} seen.</p>` +
-    `<table><thead><tr><th>Device</th><th>Last IP</th><th>Last seen</th></tr></thead><tbody>${rows}</tbody></table>`;
+    `<p>${presentCount} device${presentCount === 1 ? "" : "s"} currently on your network (${data.device_count} seen in total).</p>` +
+    `<table><thead><tr><th>Device</th><th>Last IP</th><th>Last seen</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function eventLabel(e) {
+  const who = e.vendor || (e.type === "randomized_private" ? "A private device" : "An unrecognized device");
+  if (e.event_type === "device_new") return `${who} joined your network for the first time`;
+  if (e.event_type === "device_returned") return `${who} came back online`;
+  if (e.event_type === "device_missing") return `${who} hasn't been seen since`;
+  return `${who}: ${esc(e.event_type)}`;
+}
+
+function renderActivity(data) {
+  const el = document.getElementById("activity");
+  const events = (data && data.recent_events) || [];
+  if (!data || !data.configured) {
+    el.innerHTML = "<p>Nothing to show yet.</p>";
+    return;
+  }
+  if (events.length === 0) {
+    el.innerHTML = "<p>No activity recorded yet — this fills in as devices join, leave, and come back over time.</p>";
+    return;
+  }
+  el.innerHTML = "<ul class='findings'>" + events.map(e =>
+    `<li>${esc(eventLabel(e))}<br><span class="confidence">${timeAgo(e.timestamp)}</span></li>`
+  ).join("") + "</ul>";
 }
 
 function renderStorage(storage) {
@@ -170,7 +199,9 @@ async function refresh() {
     const historyData = await historyRes.json();
     renderHistory(historyData.reports);
     renderStorage(historyData.storage);
-    renderDevices(await devicesRes.json());
+    const devicesData = await devicesRes.json();
+    renderDevices(devicesData);
+    renderActivity(devicesData);
     document.getElementById("status").textContent = "Updated " + new Date().toLocaleTimeString();
   } catch (e) {
     document.getElementById("status").textContent = "Connection error: " + e;

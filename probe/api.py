@@ -123,22 +123,24 @@ def _make_handler(db_path: str, device_db_path: str | None = None) -> type[BaseH
             gateway-probe-devices at all is optional.
             """
             if device_db_path is None:
-                self._send_json({"configured": False, "available": False, "devices": []})
+                self._send_json({"configured": False, "available": False, "devices": [], "recent_events": []})
                 return
 
             try:
                 conn = _connect_readonly(device_db_path)
             except sqlite3.OperationalError:
-                self._send_json({"configured": True, "available": False, "devices": []})
+                self._send_json({"configured": True, "available": False, "devices": [], "recent_events": []})
                 return
 
             try:
                 devices = device_history_mod.list_known_devices(conn)
+                events = device_history_mod.list_recent_events(conn, limit=20)
                 self._send_json({
                     "configured": True,
                     "available": True,
                     "device_count": len(devices),
                     "devices": devices,
+                    "recent_events": events,
                 })
             finally:
                 conn.close()

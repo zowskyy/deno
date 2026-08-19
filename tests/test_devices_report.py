@@ -6,7 +6,7 @@ repeat, unavailable source) is tested directly, not just the data plumbing.
 from __future__ import annotations
 
 from probe import devices_report as report_mod
-from probe.devices_report import _plain_summary, build_device_report
+from probe.devices_report import _plain_summary, build_device_report, get_recent_activity
 
 
 def _inventory(devices, source="ip neigh"):
@@ -54,15 +54,51 @@ class TestPlainSummaryWording:
     def test_new_devices_are_called_out_with_count(self):
         devices = [{"mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}]
         new = [{"mac": "11:22:33:44:55:66", "vendor": None, "type": "unknown_vendor"}]
-        diff = {"is_first_scan": False, "new_devices": new, "known_devices": devices}
+        diff = {"is_first_scan": False, "new_devices": new, "known_devices": devices, "missing_devices": []}
         summary = _plain_summary(_inventory(devices + new), diff)
         assert "1 device new since last scan" in summary
 
     def test_no_new_devices_says_so_plainly(self):
         devices = [{"mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}]
-        diff = {"is_first_scan": False, "new_devices": [], "known_devices": devices}
+        diff = {"is_first_scan": False, "new_devices": [], "known_devices": devices, "missing_devices": []}
         summary = _plain_summary(_inventory(devices), diff)
         assert "nothing new" in summary.lower()
+
+    def test_missing_devices_are_called_out_with_count(self):
+        devices = [{"mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}]
+        diff = {
+            "is_first_scan": False,
+            "new_devices": [],
+            "known_devices": devices,
+            "missing_devices": ["11:22:33:44:55:66"],
+        }
+        summary = _plain_summary(_inventory(devices), diff)
+        assert "1 device hasn't been seen since last scan" in summary
+        assert "nothing new" not in summary.lower()
+
+    def test_multiple_missing_devices_uses_plural_verb(self):
+        devices = [{"mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}]
+        diff = {
+            "is_first_scan": False,
+            "new_devices": [],
+            "known_devices": devices,
+            "missing_devices": ["11:22:33:44:55:66", "AA:BB:CC:DD:EE:FF"],
+        }
+        summary = _plain_summary(_inventory(devices), diff)
+        assert "2 devices haven't been seen since last scan" in summary
+
+    def test_new_and_missing_both_mentioned_together(self):
+        devices = [{"mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}]
+        new = [{"mac": "11:22:33:44:55:66", "vendor": None, "type": "unknown_vendor"}]
+        diff = {
+            "is_first_scan": False,
+            "new_devices": new,
+            "known_devices": devices,
+            "missing_devices": ["AA:BB:CC:DD:EE:FF"],
+        }
+        summary = _plain_summary(_inventory(devices + new), diff)
+        assert "1 device new since last scan" in summary
+        assert "1 device hasn't been seen since last scan" in summary
 
 
 class TestBuildDeviceReport:
@@ -99,3 +135,39 @@ class TestBuildDeviceReport:
         monkeypatch.setattr(report_mod, "build_device_inventory", lambda: _inventory([]))
         report = build_device_report(db_path=None)
         assert report["schema_version"] == "0.1"
+
+    def test_missing_devices_are_surfaced_in_report(self, tmp_path, monkeypatch):
+        db_path = str(tmp_path / "devices.db")
+        devices = [
+            {"ip": "192.168.1.5", "mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"},
+            {"ip": "192.168.1.6", "mac": "11:22:33:44:55:66", "vendor": None, "type": "unknown_vendor"},
+        ]
+        monkeypatch.setattr(report_mod, "build_device_inventory", lambda: _inventory(devices))
+        build_device_report(db_path=db_path)  # first scan, baseline
+
+        monkeypatch.setattr(report_mod, "build_device_inventory", lambda: _inventory(devices[:1]))
+        second = build_device_report(db_path=db_path)
+        assert second["missing_device_count"] == 1
+        assert second["missing_devices"] == ["11:22:33:44:55:66"]
+
+
+class TestGetRecentActivity:
+    def test_returns_events_recorded_across_scans(self, tmp_path, monkeypatch):
+        db_path = str(tmp_path / "devices.db")
+        devices = [{"ip": "192.168.1.5", "mac": "3C:5A:B4:12:34:56", "vendor": "Apple", "type": "known_vendor"}]
+        monkeypatch.setattr(report_mod, "build_device_inventory", lambda: _inventory(devices))
+        build_device_report(db_path=db_path)  # first scan: no events
+
+        new_devices = devices + [
+            {"ip": "192.168.1.6", "mac": "11:22:33:44:55:66", "vendor": None, "type": "unknown_vendor"}
+        ]
+        monkeypatch.setattr(report_mod, "build_device_inventory", lambda: _inventory(new_devices))
+        build_device_report(db_path=db_path)  # second scan: device_new event
+
+        activity = get_recent_activity(db_path)
+        assert len(activity) == 1
+        assert activity[0]["event_type"] == "device_new"
+
+    def test_empty_before_any_scan(self, tmp_path):
+        db_path = str(tmp_path / "devices.db")
+        assert get_recent_activity(db_path) == []

@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 
-from .device_history import diff_and_save, open_device_store
+from .device_history import diff_and_save, list_recent_events, open_device_store
 from .devices import build_device_inventory
 
 SCHEMA_VERSION = "0.1"
@@ -55,11 +55,16 @@ def _plain_summary(inventory: dict, diff: dict | None) -> str:
     if diff is not None:
         if diff["is_first_scan"]:
             pieces.append("This is your first scan — nothing to compare against yet.")
-        elif diff["new_devices"]:
-            n = len(diff["new_devices"])
-            pieces.append(f"{n} device{'s' if n != 1 else ''} new since last scan.")
         else:
-            pieces.append("Nothing new since last scan.")
+            if diff["new_devices"]:
+                n = len(diff["new_devices"])
+                pieces.append(f"{n} device{'s' if n != 1 else ''} new since last scan.")
+            if diff["missing_devices"]:
+                m = len(diff["missing_devices"])
+                verb = "hasn't" if m == 1 else "haven't"
+                pieces.append(f"{m} device{'s' if m != 1 else ''} {verb} been seen since last scan.")
+            if not diff["new_devices"] and not diff["missing_devices"]:
+                pieces.append("Nothing new since last scan.")
 
     return " ".join(pieces)
 
@@ -89,8 +94,23 @@ def build_device_report(db_path: str | None = None) -> dict:
         "devices": inventory["devices"],
         "new_device_count": len(diff["new_devices"]) if diff else None,
         "new_devices": diff["new_devices"] if diff else None,
+        "missing_device_count": len(diff["missing_devices"]) if diff else None,
+        "missing_devices": diff["missing_devices"] if diff else None,
         "is_first_scan": diff["is_first_scan"] if diff else None,
+        "events_this_scan": diff["events"] if diff else None,
         "summary": "",
     }
     report["summary"] = _plain_summary(inventory, diff)
     return report
+
+
+def get_recent_activity(db_path: str, limit: int = 50) -> list[dict]:
+    """Return the recent device-activity timeline without running a new
+    scan — for viewing history (e.g. in the dashboard) independent of
+    triggering a fresh probe.
+    """
+    conn = open_device_store(db_path)
+    try:
+        return list_recent_events(conn, limit=limit)
+    finally:
+        conn.close()
