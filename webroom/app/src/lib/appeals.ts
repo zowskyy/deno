@@ -15,6 +15,7 @@ export interface AppealSummary {
   status: "open" | "granted" | "dismissed";
 }
 
+/** Return true when a SQLite error indicates a unique-index violation. */
 function isOpenAppealUniqueViolation(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const code = (error as { code?: string }).code;
@@ -95,20 +96,35 @@ export function reviewAppeal(
 ): boolean {
   const db = getDb();
   const now = new Date().toISOString();
-  const appeal = db
-    .prepare("SELECT user_id FROM appeals WHERE id = ? AND status = 'open'")
-    .get(appealId) as { user_id: string } | undefined;
-  if (!appeal) return false;
 
-  const result = db
-    .prepare(
-      "UPDATE appeals SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
-    )
-    .run(status, moderatorId, note.trim() || null, now, appealId);
-  if (result.changes === 0) return false;
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const appeal = db
+      .prepare("SELECT user_id FROM appeals WHERE id = ? AND status = 'open'")
+      .get(appealId) as { user_id: string } | undefined;
+    if (!appeal) {
+      db.exec("ROLLBACK");
+      return false;
+    }
 
-  if (status === "granted") {
-    db.prepare("UPDATE users SET is_blocked_platform = 0 WHERE id = ?").run(appeal.user_id);
+    const result = db
+      .prepare(
+        "UPDATE appeals SET status = ?, moderator_id = ?, moderator_note = ?, reviewed_at = ? WHERE id = ? AND status = 'open'",
+      )
+      .run(status, moderatorId, note.trim() || null, now, appealId);
+    if (result.changes === 0) {
+      db.exec("ROLLBACK");
+      return false;
+    }
+
+    if (status === "granted") {
+      db.prepare("UPDATE users SET is_blocked_platform = 0 WHERE id = ?").run(appeal.user_id);
+    }
+
+    db.exec("COMMIT");
+    return true;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
   }
-  return true;
 }

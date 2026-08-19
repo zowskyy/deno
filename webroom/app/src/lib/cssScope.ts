@@ -20,12 +20,29 @@ const BLOCKED_SELECTORS = /\b(html|body|:root|iframe|dialog|script|\.top-bar|\.s
 const MAX_CSS_LENGTH = 8000;
 const MAX_RULE_COUNT = 80;
 
+/** Remove block comments from CSS source text. */
 function stripCssComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+/** Decode CSS escape sequences so obfuscated tokens match their literal forms. */
+function decodeCssEscapes(css: string): string {
+  return css
+    .replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[\t\n\f\r ])?/g, (_, hex: string) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/\\(?:\r\n|[\t\n\f\r ])?/g, "")
+    .replace(/\\(.)/g, "$1");
+}
+
+/** Normalize CSS text before safety checks. */
+function canonicalizeCss(css: string): string {
+  return decodeCssEscapes(stripCssComments(css)).replace(/\s+/g, " ");
+}
+
+/** Reject positioned overlays that include z-index. */
 function rejectUnsafeDeclarations(body: string, rejected: string[]): boolean {
-  const normalized = stripCssComments(body).replace(/\s+/g, " ");
+  const normalized = canonicalizeCss(body);
   const hasOverlayPosition = /position\s*:\s*(fixed|absolute)/i.test(normalized);
   const hasZIndex = /\bz-index\s*:/i.test(normalized);
   if (hasOverlayPosition && hasZIndex) {
@@ -35,6 +52,7 @@ function rejectUnsafeDeclarations(body: string, rejected: string[]): boolean {
   return false;
 }
 
+/** Validate a rule declaration block for unsafe overlay patterns. */
 function validateRuleBody(body: string, rejected: string[]): boolean {
   return rejectUnsafeDeclarations(body, rejected);
 }
@@ -63,8 +81,9 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
     return { css: "", warnings, rejected };
   }
 
+  const canonical = canonicalizeCss(raw);
   for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(raw)) {
+    if (pattern.test(canonical)) {
       rejected.push(`Blocked pattern: ${pattern.source}`);
     }
   }
@@ -142,6 +161,7 @@ export function validateProfileCustomCss(
   return { ok: true, css: result.css, warnings: result.warnings };
 }
 
+/** Scope selectors inside a nested CSS block. */
 function scopeSelectors(block: string, scopeClass: string, rejected: string[]): string {
   const rules = splitCssRules(block);
   const out: string[] = [];
@@ -164,6 +184,7 @@ function scopeSelectors(block: string, scopeClass: string, rejected: string[]): 
   return out.join("\n");
 }
 
+/** Split top-level CSS rules while respecting nested braces. */
 function splitCssRules(css: string): string[] {
   const rules: string[] = [];
   let depth = 0;

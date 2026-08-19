@@ -7,11 +7,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let dbInstance: DatabaseSync | undefined;
 
+/** Return whether a table column exists in the current schema. */
 function columnExists(db: DatabaseSync, table: string, column: string): boolean {
   const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   return rows.some((r) => r.name === column);
 }
 
+/** Return whether a named SQLite index exists. */
 function indexExists(db: DatabaseSync, name: string): boolean {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?").get(name) as
     | { name: string }
@@ -19,6 +21,39 @@ function indexExists(db: DatabaseSync, name: string): boolean {
   return !!row;
 }
 
+/** Dismiss duplicate open appeals, keeping the oldest per user. */
+export function reconcileDuplicateOpenAppeals(db: DatabaseSync): void {
+  const duplicates = db
+    .prepare(
+      `SELECT user_id
+       FROM appeals
+       WHERE status = 'open'
+       GROUP BY user_id
+       HAVING COUNT(*) > 1`,
+    )
+    .all() as { user_id: string }[];
+
+  for (const { user_id } of duplicates) {
+    const rows = db
+      .prepare(
+        `SELECT id FROM appeals
+         WHERE user_id = ? AND status = 'open'
+         ORDER BY created_at ASC`,
+      )
+      .all(user_id) as { id: string }[];
+
+    for (let i = 1; i < rows.length; i++) {
+      db.prepare(
+        `UPDATE appeals
+         SET status = 'dismissed',
+             moderator_note = 'Superseded during migration — duplicate open appeal.'
+         WHERE id = ?`,
+      ).run(rows[i]!.id);
+    }
+  }
+}
+
+/** Apply schema bootstrap and incremental migrations. */
 function migrate(db: DatabaseSync): void {
   const schemaPath = join(__dirname, "schema.sql");
   const schema = readFileSync(schemaPath, "utf-8");
@@ -49,6 +84,7 @@ function migrate(db: DatabaseSync): void {
     db.exec("ALTER TABLE theme_reports ADD COLUMN reviewed_at TEXT");
   }
   if (!indexExists(db, "idx_appeals_one_open_per_user")) {
+    reconcileDuplicateOpenAppeals(db);
     db.exec(
       "CREATE UNIQUE INDEX idx_appeals_one_open_per_user ON appeals(user_id) WHERE status = 'open'",
     );

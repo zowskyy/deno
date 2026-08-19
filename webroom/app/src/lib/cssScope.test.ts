@@ -50,6 +50,18 @@ describe("scopeProfileCss", () => {
     expect(result.css).toBe("");
   });
 
+  it("rejects escaped overlay declarations", () => {
+    const result = scopeProfileCss(".trap { pos\\69tion: absolute; z\\2d index: 9999; }", ".profile-scope--x");
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.css).toBe("");
+  });
+
+  it("rejects escaped blocked tokens", () => {
+    const result = scopeProfileCss('@\\69mport url("evil.css");', ".profile-scope--x");
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.css).toBe("");
+  });
+
   it("allows @media prefers-reduced-motion", () => {
     const result = scopeProfileCss(
       "@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }",

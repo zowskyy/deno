@@ -193,4 +193,3 @@ CREATE TABLE IF NOT EXISTS appeals (
 );
 
 CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status, created_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_appeals_one_open_per_user ON appeals(user_id) WHERE status = 'open';
