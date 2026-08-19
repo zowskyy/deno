@@ -1,0 +1,286 @@
+/* Design tokens match the Webroom plan/pitch identity: warm parchment,
+   ink-plum text, coral accent, moss for safe/success states. Same three
+   type roles too (Fraunces display, Karla body, Space Mono utility). */
+
+:root {
+  --paper: #f1ede9;
+  --paper-raised: #ffffff;
+  --ink: #241b2e;
+  --ink-soft: #6b5a72;
+  --accent: #c7314b;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(224, 82, 107, 0.1);
+  --moss: #3f6b4e;
+  --moss-wash: rgba(76, 122, 91, 0.12);
+  --danger: #b3261e;
+  --danger-wash: rgba(179, 38, 30, 0.1);
+  --line: rgba(36, 27, 46, 0.16);
+  --radius: 6px;
+  --focus-ring: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1b1520;
+    --paper-raised: #251e2c;
+    --ink: #f1eaee;
+    --ink-soft: #c1afc6;
+    --accent: #ff7a92;
+    --accent-ink: #241221;
+    --accent-wash: rgba(255, 122, 146, 0.14);
+    --moss: #7fbe95;
+    --moss-wash: rgba(127, 190, 149, 0.15);
+    --danger: #ff6b61;
+    --danger-wash: rgba(255, 107, 97, 0.15);
+    --line: rgba(241, 234, 238, 0.18);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Karla", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  text-wrap: balance;
+  margin: 0 0 0.5rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+.mono {
+  font-family: "Space Mono", ui-monospace, monospace;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1.1rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.field input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.field .hint {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.error-banner {
+  background: var(--danger-wash);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.92rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 0.65rem 1.3rem;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.05);
+}
+
+.btn.secondary {
+  background: transparent;
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  font-family: "Space Mono", monospace;
+  font-size: 0.85rem;
+}
+
+.top-bar .controls {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.top-bar .controls a,
+.top-bar .controls button {
+  color: var(--ink-soft);
+  text-decoration: none;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25em 0.75em;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Public page rendering. Theme colors arrive only as the two custom
+   properties below, always pre-validated hex strings — never raw text
+   interpolated into a stylesheet or style attribute. */
+.page-body {
+  --page-accent: var(--accent);
+  --page-bg: var(--paper);
+  --page-ink: var(--ink);
+  --page-ink-soft: var(--ink-soft);
+  background: var(--page-bg);
+  color: var(--page-ink);
+  min-height: calc(100vh - 45px);
+  padding: 2rem 1.25rem 4rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.page-body h1 {
+  color: var(--page-accent);
+}
+
+.page-status {
+  font-family: "Space Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--page-ink-soft);
+}
+
+.page-bio {
+  margin-top: 0.5rem;
+  color: var(--page-ink);
+}
+
+.part-label {
+  font-size: 1.1rem;
+  margin-top: 2rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--page-accent);
+  display: inline-block;
+  color: var(--page-ink);
+}
+
+.page-links,
+.page-friends {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.page-links a,
+.page-friends a {
+  display: inline-block;
+  padding: 0.4rem 0;
+  color: var(--page-accent);
+}
+
+.empty-note {
+  color: var(--page-ink-soft);
+  font-size: 0.9rem;
+}
+
+.page-footer {
+  margin-top: 3rem;
+  font-size: 0.75rem;
+  color: var(--page-ink-soft);
+}
+
+/* Reader Mode: decoration stripped, content guaranteed readable
+   regardless of what theme.template/accent/background would otherwise
+   apply. This block intentionally overrides .page-body's theme-driven
+   rules with fixed, high-contrast values. */
+.page-body.reader-mode {
+  background: #ffffff;
+  color: #111111;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.7;
+}
+
+.page-body.reader-mode h1,
+.page-body.reader-mode .part-label {
+  color: #111111;
+  border-bottom-color: #111111;
+}
+
+@media (prefers-color-scheme: dark) {
+  .page-body.reader-mode {
+    background: #0e0e0e;
+    color: #f2f2f2;
+  }
+  .page-body.reader-mode h1,
+  .page-body.reader-mode .part-label {
+    color: #f2f2f2;
+    border-bottom-color: #f2f2f2;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-body {
+    padding: 1.25rem 1rem 3rem;
+  }
+}
