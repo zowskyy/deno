@@ -18,7 +18,20 @@
 #   SQM_SETTLE_SECONDS   pause after re-enabling SQM      (default: 10)
 #   REPO_TARBALL_URL     source to fetch if probe/ missing
 #
-# Safe to re-run: SQM is left enabled when the script finishes (or fails).
+# Safe to re-run, and safe against a dropped connection: if the SSH
+# session this script runs under disconnects at any point (very plausible
+# over ~7 minutes on mobile data or a backgrounded phone SSH app), a trap
+# below unconditionally re-enables SQM no matter where the script was
+# interrupted — it never leaves the router silently running without
+# bufferbloat protection. For a connection prone to dropping, prefer
+# running this under nohup instead of a plain foreground SSH command, so
+# the TEST ITSELF survives the disconnect rather than just failing safely:
+#
+#   nohup sh run-four-condition-test.sh > test.log 2>&1 &
+#   tail -f test.log      # reconnect any time to check progress
+#
+# (IPERF_SERVER and other overrides still work as env vars in front of
+# nohup, same as a normal foreground run.)
 
 set -e
 
@@ -71,6 +84,30 @@ sqm_on() {
   /etc/init.d/sqm start >/dev/null 2>&1 || true
   sleep "$SQM_SETTLE_SECONDS"
 }
+
+# Safety net: if this script is interrupted for ANY reason (SSH session
+# dropped, phone killed the SSH app in the background, Ctrl-C, a command
+# failing under `set -e`) while SQM happens to be disabled mid-test, the
+# router must never be silently left without bufferbloat protection with
+# no explanation. SCRIPT_COMPLETED is only set to 1 at the very end of a
+# fully successful run, so this only fires — loudly — on an abnormal exit.
+SCRIPT_COMPLETED=0
+
+restore_sqm_on_exit() {
+  if [ "$SCRIPT_COMPLETED" -eq 0 ]; then
+    echo "" >&2
+    echo "!!! Test interrupted or failed before finishing." >&2
+    echo "!!! Restoring SQM to enabled now so your connection isn't left unprotected. !!!" >&2
+    uci set sqm.@default[0].enabled=1 2>/dev/null || true
+    uci commit sqm 2>/dev/null || true
+    /etc/init.d/sqm start >/dev/null 2>&1 || true
+    echo "!!! SQM re-enabled. Safe to re-run this script from the start whenever you're ready. !!!" >&2
+  fi
+}
+trap restore_sqm_on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 run_idle() {
   label="$1"
@@ -206,3 +243,5 @@ PYEOF
 echo ""
 echo "Raw reports and logs: $RESULTS_DIR"
 echo "Next: paste the summary numbers above into deployment/CASE_STUDY_TEMPLATE.md"
+
+SCRIPT_COMPLETED=1

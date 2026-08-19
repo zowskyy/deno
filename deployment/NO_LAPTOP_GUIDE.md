@@ -61,20 +61,33 @@ originates, so this still validly tests bufferbloat.
 
 ```sh
 wget -O run-test.sh https://raw.githubusercontent.com/zowskyy/deno/claude/gateway-probe-mvp-ueca5r/deployment/run-four-condition-test.sh
-IPERF_SERVER=iperf3.example.com sh run-test.sh
+IPERF_SERVER=iperf3.example.com nohup sh run-test.sh > test.log 2>&1 &
+tail -f test.log
 ```
+
+The `nohup ... &` part matters if you're on mobile data or anywhere your
+connection might drop mid-test (this whole run takes ~6-7 minutes) — it
+means the test keeps running on the router itself even if your phone's
+SSH session dies. If you get disconnected, just SSH back in and run
+`tail -f test.log` again to see where it's at; nothing is lost. Press
+Ctrl-C to stop watching `tail -f` without stopping the test itself.
+
+(If you're on solid Wi-Fi and don't want to bother with `nohup`, a plain
+foreground `sh run-test.sh` works too — the script also protects itself:
+if it's interrupted for any reason while SQM happens to be turned off for
+a test, it automatically turns SQM back on before exiting, so a dropped
+connection can never leave your connection silently unprotected.)
 
 Replace `iperf3.example.com` with a real WAN-reachable iperf3 server. If
 the repo is private, `wget` will 404 — in that case copy the script's
 contents into a file on the router with `vi`/`nano`, or push it over with
 Termux's `scp` instead.
 
-The whole run takes roughly `iterations × (2 × 30s ping/settle overhead + 2 × 30s loaded test)` —
-about 6-7 minutes for the default 3 iterations at the default 30s duration.
-Adjust with env vars if you want it shorter for a first sanity check:
+Adjust with env vars if you want a shorter run for a first sanity check:
 
 ```sh
-IPERF_SERVER=iperf3.example.com ITERATIONS=1 DURATION=10 sh run-test.sh
+IPERF_SERVER=iperf3.example.com ITERATIONS=1 DURATION=10 nohup sh run-test.sh > test.log 2>&1 &
+tail -f test.log
 ```
 
 At the end you'll see something like:
