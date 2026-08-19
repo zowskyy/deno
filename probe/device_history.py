@@ -68,6 +68,17 @@ def diff_and_save(conn: sqlite3.Connection, classified_devices: list[dict], time
       stays missing, so this stays a log of *changes*, not a repeating
       alarm.
     """
+    # Dedupe by MAC before touching the database: a device with two ARP
+    # entries (e.g. momentarily present on two interfaces) must not be
+    # processed twice in one call — that would double-INSERT into the
+    # mac PRIMARY KEY (crashing with sqlite3.IntegrityError) for a brand
+    # new device, or double-log a device_returned event for one that was
+    # missing. First occurrence wins.
+    deduped: dict[str, dict] = {}
+    for d in classified_devices:
+        deduped.setdefault(d["mac"], d)
+    classified_devices = list(deduped.values())
+
     existing_rows = {row[0]: row[1] for row in conn.execute("SELECT mac, present FROM devices").fetchall()}
     is_first_scan = len(existing_rows) == 0
     current_macs = {d["mac"] for d in classified_devices}
@@ -89,6 +100,7 @@ def diff_and_save(conn: sqlite3.Connection, classified_devices: list[dict], time
                 "VALUES (?, ?, ?, ?, ?, ?, 1)",
                 (mac, d.get("vendor"), d["type"], timestamp, timestamp, d.get("ip")),
             )
+            existing_rows[mac] = 1
         else:
             known_devices.append(d)
             was_present = existing_rows[mac] == 1
@@ -101,6 +113,7 @@ def diff_and_save(conn: sqlite3.Connection, classified_devices: list[dict], time
                 "WHERE mac = ?",
                 (timestamp, d.get("ip"), d.get("vendor"), d["type"], mac),
             )
+            existing_rows[mac] = 1
 
     missing_macs = [mac for mac, present in existing_rows.items() if present == 1 and mac not in current_macs]
     for mac in missing_macs:

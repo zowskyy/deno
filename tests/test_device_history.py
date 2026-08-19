@@ -181,6 +181,45 @@ class TestPresenceEvents:
         assert event_types == ["device_returned", "device_missing", "device_new"]
 
 
+class TestDuplicateMacInSingleScan:
+    """Regression coverage: a device can legitimately appear twice in one
+    scan's device list (e.g. momentarily visible on two interfaces, or a
+    flapping DHCP lease captured as two ARP entries before dedup happens
+    upstream). diff_and_save must handle this itself, not assume its
+    caller already deduped — previously this crashed with
+    sqlite3.IntegrityError (duplicate PRIMARY KEY) for a brand-new device,
+    or double-logged a device_returned event for a previously-missing one."""
+
+    def test_duplicate_new_device_does_not_crash_or_double_insert(self, tmp_path):
+        conn = open_device_store(tmp_path / "devices.db")
+        diff_and_save(conn, [APPLE_DEVICE], "2026-01-01T00:00:00Z")  # baseline
+
+        duplicated = [UNKNOWN_DEVICE, dict(UNKNOWN_DEVICE)]  # same mac, twice
+        diff = diff_and_save(conn, [APPLE_DEVICE] + duplicated, "2026-01-02T00:00:00Z")
+
+        assert len(diff["new_devices"]) == 1
+        assert len(list_known_devices(conn)) == 2  # not 3
+
+    def test_duplicate_returning_device_logs_exactly_one_event(self, tmp_path):
+        conn = open_device_store(tmp_path / "devices.db")
+        diff_and_save(conn, [APPLE_DEVICE, UNKNOWN_DEVICE], "2026-01-01T00:00:00Z")
+        diff_and_save(conn, [APPLE_DEVICE], "2026-01-02T00:00:00Z")  # UNKNOWN_DEVICE missing
+
+        duplicated = [UNKNOWN_DEVICE, dict(UNKNOWN_DEVICE)]  # same mac, twice
+        diff3 = diff_and_save(conn, [APPLE_DEVICE] + duplicated, "2026-01-03T00:00:00Z")
+
+        returned_events = [e for e in diff3["events"] if e["event_type"] == "device_returned"]
+        assert len(returned_events) == 1
+
+    def test_duplicate_device_present_every_scan_still_generates_no_events(self, tmp_path):
+        conn = open_device_store(tmp_path / "devices.db")
+        diff_and_save(conn, [APPLE_DEVICE, dict(APPLE_DEVICE)], "2026-01-01T00:00:00Z")
+        diff2 = diff_and_save(conn, [APPLE_DEVICE, dict(APPLE_DEVICE)], "2026-01-02T00:00:00Z")
+
+        assert diff2["events"] == []
+        assert len(list_known_devices(conn)) == 1
+
+
 class TestListRecentEvents:
     def test_empty_store_returns_empty_list(self, tmp_path):
         conn = open_device_store(tmp_path / "devices.db")

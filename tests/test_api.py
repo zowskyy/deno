@@ -231,6 +231,20 @@ class TestDevicesEndpoint:
         assert body["available"] is False
         assert body["devices"] == []
 
+    def test_corrupt_device_store_degrades_gracefully_not_crash(self, running_server_with_devices):
+        # Regression: SQLite lazily opens files, so a file that exists but
+        # isn't a valid database doesn't fail at connect() — it fails on
+        # the first query, with sqlite3.DatabaseError (not a subclass of
+        # OperationalError). The handler must catch both, not just the
+        # connect-time error.
+        base_url, device_db_path = running_server_with_devices
+        device_db_path.write_bytes(b"this is not a sqlite database")
+
+        status, body = _get(base_url + "/api/devices")
+        assert status == 200
+        assert body["configured"] is True
+        assert body["available"] is False
+
     def test_reflects_saved_device_baseline(self, running_server_with_devices):
         base_url, device_db_path = running_server_with_devices
         conn = open_device_store(device_db_path)

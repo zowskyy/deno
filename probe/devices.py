@@ -57,15 +57,22 @@ def classify_mac(mac: str) -> dict:
       "known_vendor"        — matched our bundled OUI table
       "randomized_private"  — locally-administered bit set (privacy MAC)
       "unknown_vendor"      — universally administered but not in our table
+
+    Checks the vendor table BEFORE the locally-administered bit: a few
+    manufacturers (e.g. Google, for some Chromecast/Nest hardware)
+    legitimately register OUIs inside the locally-administered address
+    space. Checking the bit first would permanently hide those real,
+    known devices behind "private/randomized" and never let them reach
+    the vendor lookup at all.
     """
     oui = ":".join(mac.split(":")[:3])
-
-    if is_locally_administered(mac):
-        return {"mac": mac, "vendor": None, "type": "randomized_private"}
 
     vendor = lookup_vendor(oui)
     if vendor:
         return {"mac": mac, "vendor": vendor, "type": "known_vendor"}
+
+    if is_locally_administered(mac):
+        return {"mac": mac, "vendor": None, "type": "randomized_private"}
 
     return {"mac": mac, "vendor": None, "type": "unknown_vendor"}
 

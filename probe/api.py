@@ -121,6 +121,14 @@ def _make_handler(db_path: str, device_db_path: str | None = None) -> type[BaseH
             missing or unreadable device store is reported as "not
             configured yet," not treated as an error, since running
             gateway-probe-devices at all is optional.
+
+            The connect-and-query is one guarded block on purpose: SQLite
+            lazily opens files, so a bad file (zero-byte, mid-write, or a
+            schema-less file caught in the narrow window between
+            open_device_store()'s connect() and its executescript()/
+            commit()) surfaces its error on the first *query*, not on
+            connect() — sqlite3.DatabaseError (not a subclass of
+            OperationalError) is possible there too, so both are caught.
             """
             if device_db_path is None:
                 self._send_json({"configured": False, "available": False, "devices": [], "recent_events": []})
@@ -128,22 +136,24 @@ def _make_handler(db_path: str, device_db_path: str | None = None) -> type[BaseH
 
             try:
                 conn = _connect_readonly(device_db_path)
-            except sqlite3.OperationalError:
-                self._send_json({"configured": True, "available": False, "devices": [], "recent_events": []})
-                return
-
-            try:
                 devices = device_history_mod.list_known_devices(conn)
                 events = device_history_mod.list_recent_events(conn, limit=20)
-                self._send_json({
-                    "configured": True,
-                    "available": True,
-                    "device_count": len(devices),
-                    "devices": devices,
-                    "recent_events": events,
-                })
+            except (sqlite3.OperationalError, sqlite3.DatabaseError):
+                self._send_json({"configured": True, "available": False, "devices": [], "recent_events": []})
+                return
             finally:
-                conn.close()
+                try:
+                    conn.close()
+                except NameError:
+                    pass  # connect() itself failed — nothing to close
+
+            self._send_json({
+                "configured": True,
+                "available": True,
+                "device_count": len(devices),
+                "devices": devices,
+                "recent_events": events,
+            })
 
     return Handler
 

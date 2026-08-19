@@ -68,7 +68,7 @@ class TestClassifyMac:
         assert result["type"] == "known_vendor"
         assert result["vendor"] == "Apple"
 
-    def test_locally_administered_is_private_regardless_of_oui_table(self):
+    def test_locally_administered_oui_not_in_table_is_private(self):
         result = classify_mac("02:00:00:00:00:01")
         assert result["type"] == "randomized_private"
         assert result["vendor"] is None
@@ -77,6 +77,17 @@ class TestClassifyMac:
         result = classify_mac("11:22:33:44:55:66")
         assert result["type"] == "unknown_vendor"
         assert result["vendor"] is None
+
+    def test_known_vendor_oui_wins_even_when_locally_administered_bit_is_set(self):
+        # Regression: 1A:B7:E0 (Google, Chromecast/Nest) is a real,
+        # legitimately-registered OUI that happens to fall inside the
+        # locally-administered address space (0x1A has the 0x02 bit set).
+        # Checking the LA bit before the vendor table would permanently
+        # hide this — and any future table entry like it — behind
+        # "private/randomized," misreporting known hardware.
+        result = classify_mac("1A:B7:E0:12:34:56")
+        assert result["type"] == "known_vendor"
+        assert result["vendor"] == "Google (Chromecast/Nest)"
 
 
 class TestParseIpNeigh:
