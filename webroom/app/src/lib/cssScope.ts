@@ -106,13 +106,11 @@ function canonicalizeCss(css: string): string {
   return decodeCssEscapes(stripCssComments(css)).replace(/\s+/g, " ");
 }
 
-/** Reject positioned overlays that include z-index. */
+/** Reject fixed/absolute positioning in profile CSS (cascade-safe). */
 function rejectUnsafeDeclarations(body: string, rejected: string[]): boolean {
   const normalized = canonicalizeCss(body);
-  const hasOverlayPosition = /position\s*:\s*(fixed|absolute)/i.test(normalized);
-  const hasZIndex = /\bz-index\s*:/i.test(normalized);
-  if (hasOverlayPosition && hasZIndex) {
-    rejected.push("Overlays with z-index are not allowed.");
+  if (/position\s*:\s*(fixed|absolute)/i.test(normalized)) {
+    rejected.push("Fixed and absolute positioning are not allowed.");
     return true;
   }
   return false;

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createUser } from "./auth";
 import { resetDbForTests } from "./db";
 import { savePageDocument, setPublished, setVisibility } from "./pageDocument";
-import { exportLocalProfile, FederationError, followRemoteProfile } from "./federation";
+import { exportLocalProfile, FederationError, followRemoteProfile, isPrivateHost } from "./federation";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
 
@@ -66,5 +66,23 @@ describe("followRemoteProfile", () => {
     expect(() =>
       followRemoteProfile(user.id, "http://example.com/api/federation/profile/x"),
     ).toThrow(FederationError);
+  });
+});
+
+describe("isPrivateHost", () => {
+  it.each([
+    ["localhost", true],
+    ["127.0.0.1", true],
+    ["10.1.2.3", true],
+    ["192.168.0.5", true],
+    ["172.20.0.1", true],
+    ["169.254.1.1", true],
+    ["100.64.0.1", true],
+    ["[::1]", true],
+    ["printer.local", true],
+    ["fdroid.example.com", false],
+    ["example.com", false],
+  ])("classifies %s as private=%s", (host, expected) => {
+    expect(isPrivateHost(host)).toBe(expected);
   });
 });

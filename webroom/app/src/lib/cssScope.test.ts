@@ -35,6 +35,15 @@ describe("scopeProfileCss", () => {
     expect(result.rejected.length).toBeGreaterThan(0);
   });
 
+  it("rejects position and z-index split across separate rules", () => {
+    const result = scopeProfileCss(
+      ".trap { position: absolute; } .trap { z-index: 9999; }",
+      ".profile-scope--x",
+    );
+    expect(result.rejected.some((r) => r.includes("position"))).toBe(true);
+    expect(result.css).toBe("");
+  });
+
   it("rejects overlays inside @media rules", () => {
     const result = scopeProfileCss(
       "@media screen { .trap { position: fixed; z-index: 9999; inset: 0; } }",

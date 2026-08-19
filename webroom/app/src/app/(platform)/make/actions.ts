@@ -98,7 +98,5 @@ export async function saveAiPageAction(documentJson: string): Promise<MakeState>
     }
     throw e;
   }
-  setPublished(viewer.id, true);
-  setVisibility(viewer.id, "public");
   redirect(`/@${viewer.handle}`);
 }
