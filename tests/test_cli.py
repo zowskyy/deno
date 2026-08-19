@@ -159,3 +159,76 @@ class TestStoreAndRetention:
         from probe.store import list_reports, open_store
         conn = open_store(db_path)
         assert len(list_reports(conn)) == 1
+
+    def test_store_with_missing_parent_directory_fails_cleanly(self, tmp_path, monkeypatch, capsys):
+        # Verified real behavior: sqlite3.connect() raises OperationalError
+        # when the parent directory doesn't exist. Must not crash with a
+        # raw traceback, and the findings summary must still print since
+        # the report itself was generated successfully.
+        bad_path = tmp_path / "does-not-exist-dir" / "events.db"
+
+        monkeypatch.setattr(cli_mod, "build_report", lambda **kwargs: _minimal_report())
+
+        rc = cli_mod.main(["--wan-interface", "eth0", "--store", str(bad_path)])
+        assert rc == 1
+
+        err = capsys.readouterr().err
+        assert "error: could not open --store" in err
+        assert "no significant issues detected" in err
+
+    def test_output_with_missing_parent_directory_falls_back_to_stdout(self, tmp_path, monkeypatch, capsys):
+        # Verified real behavior: Path.write_text() raises FileNotFoundError
+        # (a subclass of OSError) when the parent directory doesn't exist.
+        # The report must never be silently lost — it should still print.
+        bad_path = tmp_path / "does-not-exist-dir" / "report.json"
+
+        monkeypatch.setattr(cli_mod, "build_report", lambda **kwargs: _minimal_report())
+
+        rc = cli_mod.main(["--wan-interface", "eth0", "--output", str(bad_path)])
+        assert rc == 1
+
+        captured = capsys.readouterr()
+        assert "error: could not write --output file" in captured.err
+        assert "printing the report to stdout instead" in captured.err
+        report = json.loads(captured.out)
+        assert report["schema_version"] == "0.1"
+
+    def test_output_to_directory_path_falls_back_to_stdout(self, tmp_path, monkeypatch, capsys):
+        # A directory path raises IsADirectoryError, also an OSError subclass.
+        monkeypatch.setattr(cli_mod, "build_report", lambda **kwargs: _minimal_report())
+
+        rc = cli_mod.main(["--wan-interface", "eth0", "--output", str(tmp_path)])
+        assert rc == 1
+
+        captured = capsys.readouterr()
+        assert "error: could not write --output file" in captured.err
+        report = json.loads(captured.out)
+        assert report["schema_version"] == "0.1"
+
+    def test_output_success_does_not_also_print_to_stdout(self, tmp_path, monkeypatch, capsys):
+        good_path = tmp_path / "report.json"
+        monkeypatch.setattr(cli_mod, "build_report", lambda **kwargs: _minimal_report())
+
+        rc = cli_mod.main(["--wan-interface", "eth0", "--output", str(good_path)])
+        assert rc == 0
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert json.loads(good_path.read_text())["schema_version"] == "0.1"
+
+    def test_both_output_and_store_failures_are_reported_and_rc_is_1(self, tmp_path, monkeypatch, capsys):
+        bad_output = tmp_path / "no-dir-a" / "report.json"
+        bad_store = tmp_path / "no-dir-b" / "events.db"
+
+        monkeypatch.setattr(cli_mod, "build_report", lambda **kwargs: _minimal_report())
+
+        rc = cli_mod.main([
+            "--wan-interface", "eth0",
+            "--output", str(bad_output),
+            "--store", str(bad_store),
+        ])
+        assert rc == 1
+
+        err = capsys.readouterr().err
+        assert "error: could not write --output file" in err
+        assert "error: could not open --store" in err

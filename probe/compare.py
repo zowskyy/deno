@@ -16,6 +16,47 @@ BUFFERBLOAT_MODERATE_MS = 20
 BUFFERBLOAT_SIGNIFICANT_MS = 50
 
 
+class ReportLoadError(Exception):
+    """A report file couldn't be read or doesn't look like a gateway-probe
+    report — raised with a message meant to be printed directly to the
+    user, never as an uncaught traceback."""
+
+
+def _load_report(path: str, label: str) -> dict:
+    """Load and parse a gateway-probe report JSON file at *path*.
+
+    Every foreseeable failure (missing file, a directory, unreadable,
+    binary/wrong-encoding, malformed JSON, or valid JSON that just isn't a
+    gateway-probe report) raises ReportLoadError with a plain-language
+    message instead of letting FileNotFoundError/JSONDecodeError/etc.
+    propagate as a raw traceback.
+    """
+    p = Path(path)
+    try:
+        text = p.read_text()
+    except FileNotFoundError:
+        raise ReportLoadError(f"{label} report not found: {path}")
+    except IsADirectoryError:
+        raise ReportLoadError(f"{label} report path is a directory, not a file: {path}")
+    except PermissionError:
+        raise ReportLoadError(f"permission denied reading {label} report: {path}")
+    except UnicodeDecodeError:
+        raise ReportLoadError(f"{label} report is not a readable text file: {path}")
+
+    try:
+        report = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ReportLoadError(f"{label} report is not valid JSON ({exc}): {path}")
+
+    if not isinstance(report, dict) or "latency" not in report:
+        raise ReportLoadError(
+            f'{label} report does not look like a gateway-probe report '
+            f'(missing "latency" key): {path}'
+        )
+
+    return report
+
+
 def _delta(loaded: float | None, idle: float | None) -> float | None:
     if loaded is None or idle is None:
         return None
@@ -99,6 +140,44 @@ def format_comparison_text(comparison: dict) -> str:
     return "\n".join(lines)
 
 
+def _warn_if_likely_argument_swap(idle: dict, loaded: dict) -> None:
+    """Catch the single most consequential mistake this tool can't detect
+    from the math alone: idle_report and loaded_report passed in the
+    wrong order. The delta comes out with the wrong sign and the
+    interpretation silently flips to its opposite conclusion — verified
+    directly: a real bufferbloat report compared in swapped order reports
+    "no significant bufferbloat detected" instead of the true finding.
+    latency.mode is already present on every real report, so this is a
+    cheap, reliable check.
+    """
+    idle_mode = idle.get("latency", {}).get("mode")
+    loaded_mode = loaded.get("latency", {}).get("mode")
+
+    if idle_mode is not None and idle_mode != "idle":
+        print(
+            f"warning: the idle_report's latency.mode is '{idle_mode}', not 'idle' — "
+            "did you swap the idle_report/loaded_report arguments?",
+            file=sys.stderr,
+        )
+    if loaded_mode == "idle":
+        print(
+            "warning: the loaded_report's latency.mode is 'idle' — "
+            "did you swap the idle_report/loaded_report arguments?",
+            file=sys.stderr,
+        )
+
+
+def _warn_if_schema_version_mismatch(idle: dict, loaded: dict) -> None:
+    idle_schema = idle.get("schema_version")
+    loaded_schema = loaded.get("schema_version")
+    if idle_schema is not None and loaded_schema is not None and idle_schema != loaded_schema:
+        print(
+            f"warning: comparing reports from different schema_versions "
+            f"(idle={idle_schema}, loaded={loaded_schema}) — fields may not line up",
+            file=sys.stderr,
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="gateway-probe-compare",
@@ -112,8 +191,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", metavar="FILE", default=None, help="Write comparison JSON to FILE")
     args = parser.parse_args(argv)
 
-    idle = json.loads(Path(args.idle_report).read_text())
-    loaded = json.loads(Path(args.loaded_report).read_text())
+    try:
+        idle = _load_report(args.idle_report, "idle")
+        loaded = _load_report(args.loaded_report, "loaded")
+    except ReportLoadError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    _warn_if_likely_argument_swap(idle, loaded)
+    _warn_if_schema_version_mismatch(idle, loaded)
 
     comparison = compare_reports(idle, loaded)
 

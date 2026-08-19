@@ -192,33 +192,59 @@ def main(argv: list[str] | None = None) -> int:
     indent = 2 if args.pretty else None
     text = json.dumps(report, indent=indent)
 
+    output_write_failed = False
     if args.output:
-        Path(args.output).write_text(text + "\n")
-        print(f"[gateway-probe] report written to {args.output}", file=sys.stderr)
+        try:
+            Path(args.output).write_text(text + "\n")
+            print(f"[gateway-probe] report written to {args.output}", file=sys.stderr)
+        except OSError as exc:
+            output_write_failed = True
+            print(f"[gateway-probe] error: could not write --output file '{args.output}': {exc}", file=sys.stderr)
+            print(
+                "[gateway-probe] (check the parent directory exists and is writable — "
+                "printing the report to stdout instead, so it isn't lost)",
+                file=sys.stderr,
+            )
+            print(text)
     else:
         print(text)
 
+    store_failed = False
     if args.store:
+        import sqlite3
+
         from .config import RetentionConfig
         from .store import apply_retention, open_store, save_report
 
         retention_cfg = cfg.retention if args.config else RetentionConfig()
 
-        conn = open_store(args.store)
-        row_id = save_report(conn, report)
-        print(f"[gateway-probe] report #{row_id} saved to {args.store}", file=sys.stderr)
-
         try:
-            event = apply_retention(conn, args.store, retention_cfg)
-            if event["records_deleted"] > 0:
-                print(
-                    f"[gateway-probe] retention: {event['details']}",
-                    file=sys.stderr,
-                )
-        except Exception as exc:
-            print(f"[gateway-probe] warning: retention cleanup failed: {exc}", file=sys.stderr)
-        finally:
-            conn.close()
+            conn = open_store(args.store)
+        except (sqlite3.OperationalError, sqlite3.DatabaseError, OSError) as exc:
+            store_failed = True
+            print(f"[gateway-probe] error: could not open --store file '{args.store}': {exc}", file=sys.stderr)
+            print(
+                "[gateway-probe] (the report above was still generated — "
+                "check that the parent directory exists and is writable)",
+                file=sys.stderr,
+            )
+            conn = None
+
+        if conn is not None:
+            row_id = save_report(conn, report)
+            print(f"[gateway-probe] report #{row_id} saved to {args.store}", file=sys.stderr)
+
+            try:
+                event = apply_retention(conn, args.store, retention_cfg)
+                if event["records_deleted"] > 0:
+                    print(
+                        f"[gateway-probe] retention: {event['details']}",
+                        file=sys.stderr,
+                    )
+            except Exception as exc:
+                print(f"[gateway-probe] warning: retention cleanup failed: {exc}", file=sys.stderr)
+            finally:
+                conn.close()
 
     # Print findings summary to stderr
     findings = report.get("findings", [])
@@ -231,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("[gateway-probe] no significant issues detected.", file=sys.stderr)
 
-    return 0
+    return 1 if (output_write_failed or store_failed) else 0
 
 
 if __name__ == "__main__":
