@@ -44,90 +44,63 @@ python3 --version
 If space is tight, `python3-base` (no pip/dev headers) is enough — the
 probe never calls out to pip or any third-party package.
 
-## 5. Get the code onto the router
+## 5. Run the test — one script, one paste
 
-No laptop, no `git clone` step — just pull the code directly onto the
-router from GitHub:
+No separate "get the code" step needed — the script below fetches the
+probe source itself if it isn't already on the router. Use
+`deployment/run-four-condition-test.sh`: it installs `python3`/`iperf3` if
+missing, fetches the probe source, runs all 3 iterations of SQM off/on ×
+idle/loaded automatically (toggling SQM and waiting for it to settle
+between conditions), and prints a summary table with medians and the CAKE
+improvement delta at the end.
 
-```sh
-mkdir -p /tmp/gateway-probe && cd /tmp/gateway-probe
-wget -O src.tar.gz https://github.com/zowskyy/deno/archive/refs/heads/claude/gateway-probe-mvp-ueca5r.tar.gz
-tar xzf src.tar.gz --strip-components=1
-ls probe/   # should list cli.py, latency.py, classifier.py, etc.
-```
-
-(If the repo is private, `wget` will fail with a 404 — in that case, ask
-whoever has access to send you the `gateway-probe-complete.zip` directly
-to your phone, then push it to the router with Termux's `scp` instead of
-downloading from GitHub.)
-
-## 6. Run the test — entirely from this one SSH session
-
-This is the key difference from a laptop-based setup: **the router plays
-both roles**. It runs the probe *and* generates the iperf3 load itself —
-no separate "wired LAN client" device required. CAKE shapes the WAN
-egress queue regardless of where the traffic originates, so this still
-validly tests bufferbloat.
+This is the same "router plays both roles" approach: it runs the probe
+*and* generates the iperf3 load itself, no separate wired LAN client
+needed. CAKE shapes the WAN egress queue regardless of where the traffic
+originates, so this still validly tests bufferbloat.
 
 ```sh
-cd /tmp/gateway-probe
-mkdir -p results && cd results
-
-# Find an external iperf3 server, e.g. iperf3.speedtest.fr
-
-# --- SQM OFF ---
-uci set sqm.@default[0].enabled=0
-uci commit sqm
-/etc/init.d/sqm stop
-
-python3 -m probe.cli --mode idle --target 1.1.1.1 --output sqm-off-idle-1.json
-python3 -m probe.cli --mode upload-loaded --target 1.1.1.1 \
-  --iperf-server iperf3.speedtest.fr --duration 30 \
-  --output sqm-off-upload-loaded-1.json
-
-# --- SQM ON ---
-uci set sqm.@default[0].enabled=1
-uci commit sqm
-/etc/init.d/sqm start
-sleep 10
-
-python3 -m probe.cli --mode idle --target 1.1.1.1 --output sqm-on-idle-1.json
-python3 -m probe.cli --mode upload-loaded --target 1.1.1.1 \
-  --iperf-server iperf3.speedtest.fr --duration 30 \
-  --output sqm-on-upload-loaded-1.json
+wget -O run-test.sh https://raw.githubusercontent.com/zowskyy/deno/claude/gateway-probe-mvp-ueca5r/deployment/run-four-condition-test.sh
+IPERF_SERVER=iperf3.example.com sh run-test.sh
 ```
 
-Repeat the off/on pair two more times (per the alternating protocol in
-`FOUR_CONDITION_TEST_GUIDE.md`) for `-2` and `-3` suffixes.
+Replace `iperf3.example.com` with a real WAN-reachable iperf3 server. If
+the repo is private, `wget` will 404 — in that case copy the script's
+contents into a file on the router with `vi`/`nano`, or push it over with
+Termux's `scp` instead.
 
-## 7. Read the results — no file transfer needed
-
-You don't need to move JSON files anywhere. Read the key numbers straight
-out of the SSH session with a one-liner:
+The whole run takes roughly `iterations × (2 × 30s ping/settle overhead + 2 × 30s loaded test)` —
+about 6-7 minutes for the default 3 iterations at the default 30s duration.
+Adjust with env vars if you want it shorter for a first sanity check:
 
 ```sh
-for f in *.json; do
-  echo "$f:"
-  python3 -c "
-import json
-d = json.load(open('$f'))
-lat = d['latency']
-print('  public_p95_ms:', lat.get('public_p95_ms'))
-print('  throughput_mbps:', lat.get('loaded_throughput_mbps'))
-print('  valid_for_wan_comparison:', lat.get('load_validation', {}).get('valid_for_wan_comparison'))
-"
-done
+IPERF_SERVER=iperf3.example.com ITERATIONS=1 DURATION=10 sh run-test.sh
 ```
 
-Jot the numbers into your phone's notes app as you go — that's your raw
-data for the case study table. No laptop, no file transfer, no USB cable.
+At the end you'll see something like:
 
-## 8. Fill in the case study
+```
+=== Medians (loaded runs only counted if valid_for_wan_comparison) ===
+SQM off, idle  : median 18.4 ms (n=3)
+SQM off, loaded: median 163.7 ms (n=3)
+SQM on,  idle  : median 19.2 ms (n=3)
+SQM on,  loaded: median 42.1 ms (n=3)
 
-Once you have all 12 numbers, open `deployment/CASE_STUDY_TEMPLATE.md`
+SQM OFF added latency under load: 145.3 ms
+SQM ON  added latency under load: 22.9 ms
+
+>>> CAKE improvement: 122.4 ms less added latency <<<
+```
+
+That's your headline number for the case study, computed automatically —
+no manual JSON parsing, no file transfer, no laptop.
+
+## 6. Fill in the case study
+
+Once you have the summary table, open `deployment/CASE_STUDY_TEMPLATE.md`
 (view it on GitHub from your phone browser, or `cat` it over SSH) and fill
-in the result table from your notes. Everything else — equipment specs,
-topology — you already know from steps 1-4.
+in the result table with the numbers the script printed. Everything else —
+equipment specs, topology — you already know from steps 1-4.
 
 ## Caveat to note in your case study
 
