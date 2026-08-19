@@ -1,5 +1,53 @@
 # Working agreement for this project
 
+## The quality bar: no customer support required
+
+This is the standard every product built here is held to, and it's stated
+first because it governs every other decision below.
+
+Most of the software industry treats support tickets as an acceptable
+cost of shipping — a bug or gap in the product becomes a person's problem
+to explain to another person, who reads from a script that often doesn't
+even address what was actually asked. That's not a neutral trade-off,
+it's a design failure being quietly outsourced to the customer's time and
+patience, and it's exactly the pattern this work exists to not repeat.
+
+The standard: **build it complete enough, and handle enough of the
+foreseeable edge cases up front, that a support conversation for a known,
+previously-encountered issue should never need to happen.** Not "build it
+fast and patch complaints later." Not "ship an MVP and let users discover
+the gaps." If a failure mode is foreseeable — and most of the ones people
+actually call support about are exactly that: common, previously seen,
+entirely predictable — the software should already detect it, explain it,
+or handle it, before a user ever needs to ask another human.
+
+In practice this is not a slogan, it's the same concrete discipline
+already used on this project and expected on every future one:
+
+- **Every claim needs a test that could have failed**, including
+  deliberately adversarial ones — missing tools, malformed input,
+  concurrent/racing operations, corrupt state, partial failures. A
+  passing-only test suite is not evidence of quality; it's evidence
+  nobody tried to break it yet.
+- **Audit before declaring something done**, especially anything that
+  touches real state, safety, or money. Re-verify claims against the
+  actual code and actual execution, not against how confident the
+  implementation sounds.
+- **Graceful degradation is not optional polish** — a missing dependency,
+  an unreachable service, a malformed file, should produce an honest,
+  specific, actionable result, never a crash and never a silent wrong
+  answer.
+- **Fix root causes, not symptoms.** A workaround that makes a symptom go
+  away while leaving the underlying gap in place is the exact pattern
+  that produces the kind of unhelpful support interaction this standard
+  exists to prevent.
+- **When a real gap surfaces anyway** — and some always will, from cases
+  genuinely nobody could have foreseen — that becomes the next thing
+  fixed at the root, not a line added to an FAQ telling people to work
+  around it.
+
+This standard applies globally, across every project, not only this one.
+
 ## Who the user is
 
 The user is the **visionary and product owner** — not an engineer. They
