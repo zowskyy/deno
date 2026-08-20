@@ -153,15 +153,19 @@ class TestErrorCounters:
         result = get_link_state("eth0")
         assert result["rx_errors"] == 5
         assert result["tx_errors"] == 3
+        assert result["rx_errors_availability"] == "present"
+        assert result["tx_errors_availability"] == "present"
 
-    def test_missing_error_counter_files_default_to_zero(self, monkeypatch):
+    def test_missing_error_counter_files_are_unavailable(self, monkeypatch):
         monkeypatch.setattr(interfaces_mod, "_run", lambda *a, **kw: (0, "... state UP ...", ""))
         monkeypatch.setattr(interfaces_mod, "_read_sys", _no_sys_overrides)
         result = get_link_state("eth0")
-        assert result["rx_errors"] == 0
-        assert result["tx_errors"] == 0
+        assert result["rx_errors"] is None
+        assert result["tx_errors"] is None
+        assert result["rx_errors_availability"] == "unavailable"
+        assert result["tx_errors_availability"] == "unavailable"
 
-    def test_garbage_error_counter_does_not_crash(self, monkeypatch):
+    def test_garbage_error_counter_is_malformed(self, monkeypatch):
         monkeypatch.setattr(interfaces_mod, "_run", lambda *a, **kw: (0, "... state UP ...", ""))
         monkeypatch.setattr(
             interfaces_mod,
@@ -169,9 +173,19 @@ class TestErrorCounters:
             _sys_overrides({"/sys/class/net/eth0/statistics/rx_errors": "garbage"}),
         )
         result = get_link_state("eth0")
-        # Must not raise — garbage counters degrade to a safe default.
-        assert isinstance(result["rx_errors"], int)
-        assert isinstance(result["tx_errors"], int)
+        assert result["rx_errors"] is None
+        assert result["rx_errors_availability"] == "malformed"
+
+    def test_negative_error_counter_is_malformed(self, monkeypatch):
+        monkeypatch.setattr(interfaces_mod, "_run", lambda *a, **kw: (0, "... state UP ...", ""))
+        monkeypatch.setattr(
+            interfaces_mod,
+            "_read_sys",
+            _sys_overrides({"/sys/class/net/eth0/statistics/rx_errors": "-1"}),
+        )
+        result = get_link_state("eth0")
+        assert result["rx_errors"] is None
+        assert result["rx_errors_availability"] == "malformed"
 
 
 class TestRealFilesystemIntegration:
