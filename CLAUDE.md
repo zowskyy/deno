@@ -90,8 +90,15 @@ between "here's an idea" and "here's a working thing."
 
 ## Standing context
 
-- Current project: `gateway-probe`, a read-only OpenWrt/Linux gateway
-  diagnostic tool (bufferbloat/CAKE measurement). See `README.md` and
+This repo now hosts two separate products. They don't share code or
+users — keep their concerns, docs, and community-facing material
+separate (e.g. don't let Webroom material leak into what gateway-probe
+pilot testers see when they clone the repo for its README/install docs).
+
+### gateway-probe
+
+- `gateway-probe`, a read-only OpenWrt/Linux gateway diagnostic tool
+  (bufferbloat/CAKE measurement). See `README.md` and
   `deployment/DEPLOYMENT.md` for what exists.
 - Long-term direction: open-source, community-driven (r/openwrt,
   homelab audience first), aimed at eventually supporting supervised
@@ -118,3 +125,20 @@ between "here's an idea" and "here's a working thing."
   project matures, and raise it again once there's a real milestone to
   point to (a published case study, a proven Phase 2 result) — not
   before there's something credible to fund.
+
+### iofus (formerly Webroom)
+
+- Moved to its own dedicated repository: `zowskyy/iofus`. It no longer
+  lives in this repo — the `webroom/` directory here is retired; do not
+  add new Webroom/iofus work here.
+- Renamed from Webroom to **iofus** (a play on "Internet of Us"), marking
+  a direction as well as a rebrand: everyone gets a piece of the internet
+  to call their own (the page — already built, Phases 1–5 complete) *and*
+  a safe way to reach people beyond who they already know (planned Phase
+  6, "Ask iofus" — see `zowskyy/iofus`'s `PLAN.md`), grounded in the EU
+  Horizon-2020 WeNet "Internet of Us" research on diversity-aware social
+  interaction. No feed, no DMs, no algorithm — that stance is unchanged
+  by the rename.
+- Same engineering discipline as gateway-probe carries over unmodified in
+  the new repo: structured/versioned documents, schema validation,
+  graceful degradation, adversarial testing.

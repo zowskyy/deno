@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+START=96
+STOP=09
+
+PROG="/usr/libexec/gateway-probe/controller-daemon"
+STORE="/overlay/gateway-probe/reports.db"
+RUN_USER="gateway-probe"
+RUN_GROUP="gateway-probe"
+
+start_service() {
+    mkdir -p /overlay/gateway-probe
+
+    # The controller must never hold CAP_NET_ADMIN (see
+    # probe/controller_daemon.py's _has_cap_net_admin() refusal check) —
+    # running this instance as root would give it that capability
+    # implicitly and the daemon would immediately exit. chown the state
+    # directory to the unprivileged run user before procd drops privileges.
+    grep -q "^${RUN_GROUP}:" /etc/group 2>/dev/null || addgroup "$RUN_GROUP" 2>/dev/null
+    grep -q "^${RUN_USER}:" /etc/passwd 2>/dev/null || \
+        adduser -D -H -G "$RUN_GROUP" -s /bin/false "$RUN_USER" 2>/dev/null
+    chown -R "$RUN_USER":"$RUN_GROUP" /overlay/gateway-probe
+
+    procd_open_instance "gateway_probe_control"
+    procd_set_param command "$PROG" \
+        --store "$STORE" \
+        --interval-seconds 60 \
+        --mode observe_only
+
+    procd_set_param user "$RUN_USER"
+    procd_set_param group "$RUN_GROUP"
+    procd_set_param no_new_privs 1
+    procd_set_param respawn 3600 5 5
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param limits nofile="256 256"
+    procd_close_instance
+}
+
+service_triggers() {
+    procd_add_reload_trigger "gateway-probe"
+}

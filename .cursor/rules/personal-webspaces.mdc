@@ -1,0 +1,781 @@
+---
+description: Build a modern MySpace-inspired personal-web platform with safe customization, modular HTML components, and strong accessibility/security defaults.
+globs:
+  - "**/*.{html,css,js,json,md}"
+alwaysApply: true
+---
+
+# Project: Personal Webspaces
+
+Build a nostalgic, modern social-web experience where users create highly expressive personal profile pages.
+
+The product is a "personal web universe," inspired by early profile pages, web rings, guestbooks, custom CSS, blogs, badges, shrines, and curated friend lists. It must preserve individuality, discovery, and handmade aesthetics while avoiding unsafe arbitrary code execution, inaccessible layouts, and modern engagement-feed dark patterns.
+
+## Product principles
+
+Prioritize:
+
+1. Personal creative ownership over algorithmic feeds.
+2. Profiles as customizable "homes," not generic social-media cards.
+3. Structured, portable content over unstructured HTML blobs.
+4. Visual customization first, optional CSS second.
+5. Safe, reversible edits with preview, version history, export, and recovery.
+6. Responsive and accessible pages even when themes are chaotic.
+7. Intentional browsing through web rings, tags, friendships, and random discovery.
+8. No autoplay audio, aggressive popups, tracking-driven feeds, or unsafe script embeds by default.
+
+Use original terminology and branding. Do not reproduce MySpace branding, UI, assets, copy, or proprietary visual identity.
+
+## Technical baseline
+
+Use:
+
+- Semantic HTML5.
+- Vanilla JavaScript with ES modules.
+- Native Web Components / Custom Elements.
+- CSS custom properties as the primary theme API.
+- Local-first browser persistence for the prototype.
+- JSON as the canonical profile, theme, module, and snapshot format.
+- No framework unless explicitly requested.
+- No external dependencies unless they solve a real security, sanitization, or accessibility requirement.
+
+Use Web Components for reusable interface blocks. Custom Elements and Shadow DOM enable reusable, encapsulated components, but profile theming must remain intentionally exposed through CSS custom properties and `part` selectors where appropriate.
+
+## Initial deliverable
+
+Create a static, functional front-end prototype with:
+
+- A public profile page.
+- A profile editor.
+- A live preview pane.
+- A starter-theme picker.
+- A visual theme editor.
+- A constrained advanced CSS editor.
+- Drag/reorder module controls.
+- Local profile persistence.
+- JSON export/import.
+- Theme version snapshots.
+- Safe/reader mode.
+- Responsive desktop and mobile layouts.
+
+The initial prototype does not need real authentication, messaging, uploads, payments, or a production backend.
+
+## Suggested file structure
+
+Use a maintainable, modular layout:
+
+```text
+/
+├── index.html
+├── profile.html
+├── editor.html
+├── styles/
+│   ├── tokens.css
+│   ├── reset.css
+│   ├── app.css
+│   ├── profile.css
+│   ├── editor.css
+│   ├── themes.css
+│   └── accessibility.css
+├── scripts/
+│   ├── app.js
+│   ├── router.js
+│   ├── store.js
+│   ├── schema.js
+│   ├── theme-engine.js
+│   ├── css-scope.js
+│   ├── sanitization.js
+│   ├── import-export.js
+│   ├── snapshots.js
+│   ├── accessibility-audit.js
+│   ├── components/
+│   │   ├── profile-shell.js
+│   │   ├── profile-header.js
+│   │   ├── profile-bio.js
+│   │   ├── profile-links.js
+│   │   ├── top-constellation.js
+│   │   ├── guestbook-panel.js
+│   │   ├── profile-gallery.js
+│   │   ├── status-card.js
+│   │   ├── badge-shelf.js
+│   │   ├── webring-links.js
+│   │   ├── music-card.js
+│   │   ├── module-editor.js
+│   │   └── theme-editor.js
+│   └── data/
+│       ├── default-profile.js
+│       └── starter-themes.js
+├── assets/
+│   ├── icons/
+│   ├── textures/
+│   └── placeholders/
+├── docs/
+│   ├── architecture.md
+│   ├── theme-api.md
+│   ├── profile-schema.md
+│   ├── security-model.md
+│   └── accessibility.md
+└── tests/
+    ├── theme-engine.test.js
+    ├── css-scope.test.js
+    ├── schema.test.js
+    └── import-export.test.js
+```
+
+Do not put all logic in one `script.js` or all styles in one stylesheet.
+
+## Core information architecture
+
+Each user has a route-shaped identity:
+
+```text
+/@username
+/@username/about
+/@username/guestbook
+/@username/art
+/@username/devlog
+/@username/links
+```
+
+A profile must be made of configurable modules, not user-authored arbitrary page markup.
+
+Example profile schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "profile_voidarcade",
+  "handle": "voidarcade",
+  "displayName": "Void Arcade",
+  "status": "Building strange little games.",
+  "pronouns": "",
+  "createdAt": "2026-08-19T00:00:00.000Z",
+  "updatedAt": "2026-08-19T00:00:00.000Z",
+  "theme": {
+    "themeId": "pixel-rpg",
+    "tokens": {
+      "--page-bg": "#111827",
+      "--page-text": "#f9fafb",
+      "--panel-bg": "#1f2937",
+      "--panel-text": "#f9fafb",
+      "--accent": "#ff5ac8",
+      "--accent-contrast": "#111827",
+      "--border-color": "#8b5cf6",
+      "--font-body": "system-ui, sans-serif",
+      "--font-display": "\"Trebuchet MS\", sans-serif",
+      "--radius-sm": "4px",
+      "--radius-md": "10px",
+      "--shadow": "4px 4px 0 rgba(0,0,0,.35)"
+    },
+    "customCss": "",
+    "customCssEnabled": false
+  },
+  "modules": [
+    {
+      "id": "bio-1",
+      "type": "bio",
+      "enabled": true,
+      "order": 10,
+      "data": {
+        "title": "About Me",
+        "content": "I make games, tools, and weird web experiments."
+      }
+    },
+    {
+      "id": "top-8-1",
+      "type": "top-constellation",
+      "enabled": true,
+      "order": 20,
+      "data": {
+        "title": "Top Constellation",
+        "items": []
+      }
+    },
+    {
+      "id": "guestbook-1",
+      "type": "guestbook",
+      "enabled": true,
+      "order": 30,
+      "data": {
+        "title": "Guestbook",
+        "entries": []
+      }
+    }
+  ],
+  "links": [],
+  "badges": [],
+  "snapshotIds": []
+}
+```
+
+Always validate imported or persisted data against a versioned schema before rendering it.
+
+## Module system
+
+Implement a module registry.
+
+Every module must define:
+
+```js
+{
+  type: "bio",
+  label: "Bio",
+  icon: "user",
+  defaultData: () => ({ ... }),
+  validate(data) {},
+  render(data, context) {},
+  renderEditor(data, callbacks) {},
+  export(data) {},
+  import(data) {}
+}
+```
+
+Requirements:
+
+- Modules must be independently renderable.
+- A broken module must not crash the whole profile.
+- Unknown module types must render as a recoverable "unsupported module" card.
+- Modules must support enabled/disabled state.
+- Modules must support ordering.
+- Module content must remain structured JSON.
+- Add modules through a registry, not conditionals scattered throughout the codebase.
+- Preserve unknown module payloads during import/export whenever possible.
+
+Initial modules:
+
+- Profile header.
+- Status / now card.
+- Bio / about card.
+- Link list.
+- Top Constellation, the modern equivalent of Top 8.
+- Guestbook.
+- Badge shelf.
+- Image gallery using safe image URLs in the prototype.
+- Music card, mute-by-default and user-initiated playback only.
+- Web ring / discovery links.
+- Devlog / bulletin module.
+- Text shrine module for fandoms, projects, original characters, or hobbies.
+
+## Theme system
+
+Use a token-first theme system.
+
+Themes must be data-driven and stored separately from profile data. A starter theme defines defaults, while profile-level tokens override theme defaults.
+
+Theme objects should look like:
+
+```js
+{
+  id: "y2k-chrome",
+  name: "Y2K Chrome",
+  description: "Glossy panels, cool blues, reflective accents.",
+  tags: ["y2k", "glossy", "retro"],
+  previewColors: ["#dbeafe", "#38bdf8", "#1d4ed8"],
+  tokens: {
+    "--page-bg": "#dbeafe",
+    "--page-text": "#0f172a",
+    "--panel-bg": "rgba(255,255,255,.84)",
+    "--panel-text": "#0f172a",
+    "--accent": "#0284c7",
+    "--accent-contrast": "#ffffff",
+    "--border-color": "#7dd3fc",
+    "--font-body": "Arial, sans-serif",
+    "--font-display": "\"Trebuchet MS\", sans-serif",
+    "--radius-sm": "6px",
+    "--radius-md": "16px",
+    "--shadow": "0 10px 24px rgba(14, 116, 144, .22)"
+  },
+  allowedDecorations: {
+    cursorTrail: false,
+    animatedBackground: false,
+    scanlines: false
+  }
+}
+```
+
+Provide at least these starter themes:
+
+- Y2K Chrome.
+- Scene / Neon.
+- Pixel RPG Tavern.
+- Soft Angelcore.
+- CRT Terminal.
+- Indie Devlog.
+- Zine Punk.
+- Minimal Reader.
+
+Use CSS custom properties for styling:
+
+```css
+.profile-page {
+  color: var(--page-text);
+  background: var(--page-bg);
+  font-family: var(--font-body);
+}
+
+.profile-panel {
+  color: var(--panel-text);
+  background: var(--panel-bg);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.profile-title {
+  color: var(--accent);
+  font-family: var(--font-display);
+}
+```
+
+Never hardcode theme colors directly inside component CSS unless they are intentional fallback values.
+
+## Theme editor UX
+
+Support three levels of customization.
+
+### Starter mode
+
+Users select a starter theme and can reset to its defaults.
+
+### Visual editor
+
+Expose simple controls for:
+
+- Page background color or safe background image.
+- Panel color and transparency.
+- Text and accent colors.
+- Border style, width, and color.
+- Display and body fonts.
+- Panel radius.
+- Shadows.
+- Background tiling.
+- Optional subtle texture.
+- Layout density.
+- Profile header alignment.
+- Module visibility and order.
+
+### Advanced CSS mode
+
+Expose a CSS text area only after a clear warning:
+
+> Custom CSS can change your page's appearance. It cannot run JavaScript, create popups, or access other accounts.
+
+Requirements:
+
+- Custom CSS must apply only to the profile preview container.
+- Use a generated per-profile scope class, such as `.profile-scope--voidarcade`.
+- Never allow CSS that affects the application shell, editor UI, dialogs, or other profiles.
+- Do not insert raw untrusted CSS into the global document stylesheet.
+- Use a CSS parser/scoper rather than naïve string replacement in production.
+- Reject or remove unsafe or unsupported constructs.
+- Limit stylesheet size, selector count, rule count, URL count, and nesting depth.
+- Save draft edits separately from published edits.
+- Include reset, undo, redo, and "disable custom CSS" controls.
+- Provide a safe preview mode that excludes custom CSS.
+- Provide CSS lint feedback for invalid values and inaccessible color combinations.
+
+## CSS safety policy
+
+For the MVP, allow only a conservative subset.
+
+Allow:
+
+- Scoped class selectors within the profile container.
+- Element selectors only when automatically scoped.
+- CSS custom property declarations prefixed with `--user-`.
+- Common visual properties: `color`, `background`, `background-color`, `border`, `border-color`, `border-radius`, `box-shadow`, `font-family`, `font-size`, `font-weight`, `font-style`, `letter-spacing`, `line-height`, `margin`, `padding`, `gap`, `text-align`, `opacity`, `transform`, `filter`, `display`, `flex`, `grid`, and animation properties subject to motion preferences.
+- `@media` rules for responsive layouts and `prefers-reduced-motion`.
+
+Reject:
+
+- `@import`.
+- `@font-face` in the initial prototype.
+- `@namespace`.
+- `behavior`.
+- `expression`.
+- `-moz-binding`.
+- `url(javascript:...)`.
+- Remote CSS imports.
+- Attempts to escape the profile scope.
+- Rules targeting `html`, `body`, `:root`, `iframe`, `dialog`, `script`, editor selectors, or application navigation.
+- Fixed overlays that obscure navigation or safety controls.
+- Excessive animation durations or infinite rapid flashing.
+- Any CSS that makes critical controls permanently invisible or unreachable.
+
+Do not claim CSS sanitization alone is a complete security boundary. If the product later supports arbitrary HTML/CSS, render it in a dedicated isolated origin and sandboxed iframe with a restrictive Content Security Policy.
+
+## Content safety
+
+Do not support arbitrary user HTML in the MVP.
+
+For text content:
+
+- Render plain text by default.
+- If rich text is added, use a narrow allowlist of semantic tags.
+- Strip event-handler attributes such as `onclick`.
+- Reject scripts, forms, iframes, objects, embeds, SVG scripts, and inline JavaScript URLs.
+- Validate URLs before rendering links, images, audio, or embeds.
+- Prefer `https:` URLs.
+- Use `rel="noopener noreferrer"` on externally opened links.
+- Add `target="_blank"` only when appropriate and clearly signaled.
+
+When the project adds rich HTML later, sanitize it with a maintained allowlist-based sanitizer.
+
+## Accessibility requirements
+
+Accessibility is a core feature, not a cleanup step.
+
+Always:
+
+- Use landmark elements: `header`, `nav`, `main`, `aside`, `footer`.
+- Use buttons for actions and links for navigation.
+- Ensure all editor controls have programmatic labels.
+- Maintain visible keyboard focus.
+- Support keyboard-only module reordering.
+- Announce save, import, export, validation, and reorder results with `aria-live`.
+- Make dialogs focus-trapped and dismissible with Escape.
+- Ensure color contrast warnings appear in the theme editor.
+- Provide "Repair contrast" suggestions that adjust text or panel colors.
+- Respect `prefers-reduced-motion: reduce`.
+- Disable cursor trails, parallax, flash effects, and nonessential animations in reduced-motion mode.
+- Make GIF/animation-heavy themes pauseable.
+- Provide a persistent "Reader Mode" that disables decorative user theme rules.
+- Do not rely on color alone for status, errors, selected states, or required fields.
+
+Example reduced-motion baseline:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+## Responsive requirements
+
+Design mobile-first.
+
+Breakpoints should support:
+
+- Narrow phones: single column, editor panels stacked.
+- Tablets: preview and controls can use a split layout.
+- Desktop: persistent controls plus live profile preview.
+- Wide displays: constrain readable content width while allowing decorative page background.
+
+Do not let custom themes break baseline functionality:
+
+- Navigation remains reachable.
+- Reader Mode remains reachable.
+- Report/block controls remain reachable in a later social build.
+- Text remains readable.
+- Content does not create unavoidable horizontal scrolling.
+- Interactive elements remain touch-friendly.
+
+## Local-first persistence
+
+Use `localStorage` only for the initial prototype and encapsulate all persistence behind a store API.
+
+Create methods such as:
+
+```js
+loadProfile(profileId)
+saveProfile(profile)
+createProfile(profile)
+deleteProfile(profileId)
+listProfiles()
+saveDraft(profileId, draft)
+loadDraft(profileId)
+createSnapshot(profileId, label)
+listSnapshots(profileId)
+restoreSnapshot(profileId, snapshotId)
+exportProfile(profileId)
+importProfile(jsonText)
+```
+
+Requirements:
+
+- Namespace keys, for example `webspaces:v1:profile:<id>`.
+- Version all stored data.
+- Validate data on read and import.
+- Never trust persisted data as valid merely because it came from local storage.
+- Provide an explicit "clear local demo data" action.
+- Warn users that browser storage is prototype-only and may be cleared.
+- Export a complete JSON package containing profile data, theme token overrides, custom CSS, modules, and snapshots.
+
+## Snapshot system
+
+Snapshots are a first-class nostalgic feature.
+
+Users should be able to:
+
+- Create named profile-era snapshots.
+- Save date and optional note.
+- Preview a snapshot before restoration.
+- Restore it without destroying the current state.
+- Export a snapshot.
+- Browse a visual timeline of profile eras.
+
+Suggested labels:
+
+- "Summer layout."
+- "Halloween shrine."
+- "First CSS experiment."
+- "Version 47: too many GIFs."
+
+Snapshots must be immutable once created.
+
+## Discovery and social concepts
+
+Implement only mock/demo data for social features in the first prototype, but architect for future support.
+
+Future concepts:
+
+- Top Constellation: curated people, projects, games, tools, or inspirations.
+- Guestbook: moderated signed messages.
+- Web rings: thematic circles connecting profiles.
+- Recently redecorated profiles.
+- Random profile discovery.
+- Browse by visual style, hobby, fandom, medium, game genre, or music taste.
+- Friend-of-friend exploration.
+- Personal devlogs, shrines, and link pages.
+
+Do not center the architecture around infinite scrolling, engagement ranking, follower-count status competition, or autoplay media.
+
+## Component conventions
+
+Each component should:
+
+- Use a clear custom-element name with a hyphen.
+- Receive data through properties or explicit attributes.
+- Emit `CustomEvent`s for user actions.
+- Avoid directly writing to global state.
+- Remain testable outside the full application.
+- Have a loading, empty, error, and populated state where applicable.
+- Use semantic internal markup.
+- Support `part` names for intentional theme hooks.
+
+Example:
+
+```js
+class ProfileBio extends HTMLElement {
+  set module(value) {
+    this._module = value;
+    this.render();
+  }
+
+  render() {
+    const title = this._module?.data?.title ?? "About";
+    const content = this._module?.data?.content ?? "";
+
+    this.innerHTML = `
+      <section class="profile-panel" part="panel bio-panel" aria-labelledby="bio-title">
+        <h2 id="bio-title" part="title">${escapeHtml(title)}</h2>
+        <p part="content">${escapeHtml(content)}</p>
+      </section>
+    `;
+  }
+}
+
+customElements.define("profile-bio", ProfileBio);
+```
+
+Do not use `innerHTML` with unescaped user content. Use DOM APIs or a dedicated escaping/sanitization helper.
+
+## Visual direction
+
+The platform should feel handmade and nostalgic without becoming difficult to use.
+
+Use:
+
+- Playful panels.
+- Sticker-like badges.
+- Browser-window motifs.
+- Optional tiled textures.
+- Pixel, chrome, zine, CRT, scrapbook, and dreamy visual language.
+- Slight intentional irregularity in theme packs.
+- Crisp readable typography and a stable layout underneath the decoration.
+
+Avoid:
+
+- Exact replication of MySpace layouts.
+- Forced low contrast.
+- Autoplay music.
+- Unskippable splash screens.
+- Flashing effects.
+- Full-page ads.
+- Heavy visual noise in default themes.
+- Designs that make text unreadable for aesthetic reasons.
+
+## Editor behavior
+
+The editor must have:
+
+- A profile identity panel.
+- Theme selector.
+- Visual token controls.
+- Module manager.
+- Add-module menu.
+- Drag/reorder controls with keyboard alternatives.
+- Live preview.
+- Desktop/mobile preview toggles.
+- Draft/published state indicator.
+- Undo/redo.
+- Save and reset controls.
+- Snapshot controls.
+- Export/import controls.
+- Accessibility warnings.
+- Reader Mode preview.
+- Custom CSS panel behind an "Advanced" disclosure.
+
+Every irreversible action requires confirmation.
+
+Every edit should update the preview without requiring a page reload.
+
+Use debouncing for expensive operations such as CSS parsing, accessibility checks, and storage writes.
+
+## Testing expectations
+
+Write tests for pure logic and security boundaries.
+
+Minimum tests:
+
+- Profile schema validation.
+- Migration from old schema versions.
+- Module registry lookup and unknown-module fallback.
+- Theme token merging.
+- Theme reset behavior.
+- CSS scoping.
+- CSS rejection rules.
+- Import/export round trip.
+- Snapshot immutability.
+- Storage corruption recovery.
+- URL validation.
+- HTML escaping/sanitization helpers.
+- Reduced-motion behavior where testable.
+
+Use fixture profiles containing:
+
+- Long text.
+- Emoji.
+- Right-to-left text.
+- Empty modules.
+- Broken image URLs.
+- Many badges.
+- High-contrast and intentionally low-contrast themes.
+- Malformed imported JSON.
+- Unknown module types.
+- Malicious-looking CSS attempts.
+
+## Documentation requirements
+
+Maintain these documents as the code evolves:
+
+### `docs/architecture.md`
+
+Explain:
+
+- Application boot flow.
+- Component tree.
+- Data flow.
+- Module registry.
+- Theme engine.
+- Persistence boundaries.
+- Future backend integration points.
+
+### `docs/theme-api.md`
+
+Document:
+
+- Every supported CSS token.
+- Every supported `part` selector.
+- Supported custom CSS selector rules.
+- Allowed and blocked CSS properties.
+- Theme package format.
+- Theme fork/credit metadata model.
+
+### `docs/profile-schema.md`
+
+Document:
+
+- JSON schema.
+- Field meanings.
+- Module payloads.
+- Version migration strategy.
+- Export/import package format.
+
+### `docs/security-model.md`
+
+Document:
+
+- Why arbitrary HTML and JavaScript are not allowed.
+- CSS scoping and restrictions.
+- URL validation.
+- Sanitization plan.
+- Threat model.
+- Planned sandboxed iframe architecture for any future full-code page mode.
+
+### `docs/accessibility.md`
+
+Document:
+
+- Keyboard interactions.
+- Focus behavior.
+- Reader Mode.
+- Motion policy.
+- Contrast checks.
+- The expected accessibility baseline for themes and modules.
+
+## Implementation order
+
+Implement in this order:
+
+1. Establish semantic app shell, routing, and base CSS tokens.
+2. Define profile schema and validation.
+3. Build the persistence store with local demo data.
+4. Build the module registry and profile renderer.
+5. Implement the header, bio, link, status, and Top Constellation modules.
+6. Implement starter themes and token application.
+7. Build the editor with live preview.
+8. Add module add/remove/reorder behavior.
+9. Add snapshots, JSON export, and JSON import.
+10. Add safe custom CSS support with strict scoping.
+11. Add accessibility audit and Reader Mode.
+12. Add guestbook, gallery, badge shelf, web ring, and music-card modules.
+13. Add tests and documentation.
+14. Audit performance, keyboard navigation, reduced motion, mobile rendering, and malformed-import recovery.
+
+## Definition of done
+
+A feature is complete only when:
+
+- It works with demo profile data.
+- It is responsive.
+- It is keyboard usable.
+- It has an empty state where relevant.
+- It handles malformed data safely.
+- It does not inject unsanitized user content.
+- It preserves data through save/reload.
+- It can be exported and re-imported.
+- It is documented if it changes data structures, theming, or security behavior.
+- It does not break Reader Mode or baseline navigation.
+
+## Cursor working style
+
+When making changes:
+
+- First inspect existing architecture and reuse established patterns.
+- Prefer small, focused files and composable components.
+- State assumptions in code comments only when they matter for maintenance.
+- Do not add a dependency for a task achievable with platform APIs.
+- Do not silently change schema formats; add a migration.
+- Do not remove user data during a migration or import unless explicitly confirmed.
+- Do not weaken sanitization or CSS restrictions for convenience.
+- Do not use placeholder TODOs where a simple working implementation is feasible.
+- Add or update tests whenever changing validation, storage, imports, snapshots, CSS filtering, or theme behavior.
+- Keep the prototype runnable as static files whenever possible.

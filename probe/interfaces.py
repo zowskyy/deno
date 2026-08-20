@@ -1,8 +1,25 @@
 """WAN interface state collection."""
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from .shell import run_command as _run
+
+CounterAvailability = Literal["present", "unavailable", "malformed"]
+
+
+@dataclass(frozen=True)
+class InterfaceCounters:
+    """A single sysfs counter value with its availability state.
+
+    ``value`` is None whenever ``availability`` is not "present" — the
+    no-silent-zero rule: a missing or malformed counter must never be
+    reported as 0, since 0 is itself a meaningful (error-free) value.
+    """
+
+    value: int | None
+    availability: CounterAvailability
 
 
 def _read_sys(path: str) -> str | None:
@@ -10,6 +27,19 @@ def _read_sys(path: str) -> str | None:
         return Path(path).read_text().strip()
     except OSError:
         return None
+
+
+def _read_counter(path: str) -> tuple[int | None, CounterAvailability]:
+    raw = _read_sys(path)
+    if raw is None:
+        return None, "unavailable"
+    try:
+        value = int(raw)
+    except ValueError:
+        return None, "malformed"
+    if value < 0:
+        return None, "malformed"
+    return value, "present"
 
 
 def get_link_state(interface: str) -> dict:
@@ -49,13 +79,8 @@ def get_link_state(interface: str) -> dict:
         except ValueError:
             pass
 
-    rx_errors = 0
-    tx_errors = 0
-    try:
-        rx_errors = int(_read_sys(f"/sys/class/net/{interface}/statistics/rx_errors") or "0")
-        tx_errors = int(_read_sys(f"/sys/class/net/{interface}/statistics/tx_errors") or "0")
-    except ValueError:
-        pass
+    rx_errors, rx_errors_availability = _read_counter(f"/sys/class/net/{interface}/statistics/rx_errors")
+    tx_errors, tx_errors_availability = _read_counter(f"/sys/class/net/{interface}/statistics/tx_errors")
 
     return {
         "name": interface,
@@ -64,4 +89,6 @@ def get_link_state(interface: str) -> dict:
         "speed_mbps": speed_mbps,
         "rx_errors": rx_errors,
         "tx_errors": tx_errors,
+        "rx_errors_availability": rx_errors_availability,
+        "tx_errors_availability": tx_errors_availability,
     }

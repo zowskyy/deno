@@ -1,4 +1,20 @@
-# gateway-probe
+# deno
+
+This repository holds **gateway-probe**, an OpenWrt / Linux gateway diagnostic
+tool for operators measuring bufferbloat, CAKE, and link health. See
+`probe/`, `tests/`, and `deployment/`.
+
+This repo previously also held Webroom, a personal-homepage platform. It has
+since moved to its own dedicated repository and been renamed **iofus**
+(a play on "Internet of Us") — see
+[github.com/zowskyy/iofus](https://github.com/zowskyy/iofus). It shares no
+code, users, or runtime dependencies with gateway-probe.
+
+The rest of this file documents **gateway-probe** only.
+
+---
+
+## gateway-probe
 
 Read-only network diagnostic tool for OpenWrt / Linux gateways.
 
@@ -9,7 +25,7 @@ changed automatically** — the probe only observes and recommends. A separate,
 explicitly-invoked safety wrapper exists for supervised QoS changes with an
 automatic timed rollback (see below); it is never called by the probe itself.
 
-## Quick start
+### Quick start
 
 ```sh
 python3 -m venv .venv
@@ -31,7 +47,7 @@ gateway-probe \
   --store report.db
 ```
 
-## Loaded-latency testing
+### Loaded-latency testing
 
 Run concurrent iperf3 and ping to measure bufferbloat:
 
@@ -55,7 +71,7 @@ gateway-probe \
   --store report.db
 ```
 
-### Before/after comparison
+#### Before/after comparison
 
 For a rigorous before/after measurement, run one probe in `--mode idle` and
 one in a loaded mode, then compare the two reports:
@@ -81,7 +97,7 @@ Alternatively, pass `--idle-baseline-p95 <ms>` to a single loaded-mode
 `gateway-probe` run to compute `latency.delta_rtt_p95_ms` inline, without a
 separate compare step.
 
-## Dashboard and API
+### Dashboard and API
 
 Every report can be persisted to a local SQLite event store with `--store`.
 Serve that history as a read-only JSON API plus a simple browser dashboard:
@@ -104,7 +120,7 @@ The API/dashboard process only *reads* the store; it never runs probes
 itself and never touches network configuration. Stopping it has no effect
 on traffic forwarding or on any in-progress probe.
 
-## Report structure
+### Report structure
 
 ```
 {
@@ -124,7 +140,7 @@ on traffic forwarding or on any in-progress probe.
 
 See `schemas/probe-report.schema.json` for the full JSON Schema.
 
-## Diagnostic classifier
+### Diagnostic classifier
 
 Every report includes a `findings` list of deterministic rule-based
 diagnostics — no ML. Findings describe measured evidence, not root-cause
@@ -152,7 +168,7 @@ materialized (LAN-only iperf3 server, failed transfer, link genuinely under
 5 Mb/s), the reason is recorded in `load_validation.limitations` and no
 bufferbloat finding is emitted.
 
-## Device inventory ("what's on my network")
+### Device inventory ("what's on my network")
 
 A second, separate tool: lists devices currently visible on the local
 network (from the ARP/neighbor table — the same thing your router already
@@ -191,7 +207,7 @@ This is intentionally a separate, small primitive rather than a bundled
 scoping rationale. See `schemas/device-report.schema.json` for the full
 JSON Schema.
 
-## QoS safety wrapper (opt-in, standalone)
+### QoS safety wrapper (opt-in, standalone)
 
 `probe/safety.py` implements the timed-rollback pattern for applying a new
 SQM/CAKE configuration. This is the only part of gateway-probe that can
@@ -237,10 +253,9 @@ confirmation logic without touching real `uci` or the network — including
 a forced-interleaving test that proves `confirm()` and the timer's own
 rollback can never race each other into reporting the wrong outcome.
 
-## Repository layout
+### Repository layout
 
 ```
-gateway-probe/
 ├── probe/
 │   ├── __init__.py
 │   ├── cli.py             # argparse entry point (gateway-probe)
@@ -290,7 +305,7 @@ gateway-probe/
 └── pyproject.toml
 ```
 
-## Running tests
+### Running tests
 
 ```sh
 python3 -m venv .venv
@@ -303,7 +318,7 @@ pytest
 raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
 [PEP 668](https://peps.python.org/pep-0668/).)
 
-## Phase 1 acceptance criteria
+### Phase 1 acceptance criteria
 
 - [x] Measures link state and default-route state
 - [x] Measures gateway and public latency
@@ -323,7 +338,7 @@ raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
 - [x] Uses no cloud service — everything is local: stdlib HTTP server,
       SQLite file, and user-chosen ping/iperf3 targets
 
-## Constraints
+### Constraints
 
 - **Read-only by default**: the probe (`gateway-probe`) and dashboard
   (`gateway-probe-serve`) never change configuration.
@@ -333,6 +348,8 @@ raises directly on Debian 12+ / Ubuntu 24.04+ and newer distros, per
 - **No cloud**: all measurements are local or to user-chosen targets; the
   dashboard is a stdlib `http.server`, the store is a local SQLite file.
 - **No ML**: the classifier uses deterministic rules, testable in isolation.
+
+---
 
 ## License
 
