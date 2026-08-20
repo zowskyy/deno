@@ -12,6 +12,13 @@ function columnExists(db: DatabaseSync, table: string, column: string): boolean 
   return rows.some((r) => r.name === column);
 }
 
+function indexExists(db: DatabaseSync, name: string): boolean {
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?").get(name) as
+    | { name: string }
+    | undefined;
+  return !!row;
+}
+
 function migrate(db: DatabaseSync): void {
   const schemaPath = join(__dirname, "schema.sql");
   const schema = readFileSync(schemaPath, "utf-8");
@@ -36,6 +43,11 @@ function migrate(db: DatabaseSync): void {
     db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_id TEXT REFERENCES users(id) ON DELETE SET NULL");
     db.exec("ALTER TABLE theme_reports ADD COLUMN moderator_note TEXT");
     db.exec("ALTER TABLE theme_reports ADD COLUMN reviewed_at TEXT");
+  }
+  if (!indexExists(db, "idx_appeals_one_open_per_user")) {
+    db.exec(
+      "CREATE UNIQUE INDEX idx_appeals_one_open_per_user ON appeals(user_id) WHERE status = 'open'",
+    );
   }
 }
 
