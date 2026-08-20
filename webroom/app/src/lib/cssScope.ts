@@ -148,16 +148,12 @@ function findBlockedPatterns(canonical: string): string[] {
 /** Reject fixed/absolute positioning in profile CSS (cascade-safe). */
 function rejectUnsafeDeclarations(body: string, rejected: string[]): boolean {
   const normalized = canonicalizeCss(body);
-  if (/\bposition\s*:\s*(fixed|absolute)\b/i.test(normalized)) {
+  if (/(?:^|[;{\s])position\s*:\s*(fixed|absolute)\b/i.test(normalized)) {
     rejected.push("Fixed and absolute positioning are not allowed.");
     return true;
   }
-  if (/\bposition\s*:\s*var\s*\(/i.test(normalized)) {
+  if (/(?:^|[;{\s])position\s*:\s*var\s*\(/i.test(normalized)) {
     rejected.push("Position via custom properties is not allowed.");
-    return true;
-  }
-  if (/--[a-z0-9_-]+\s*:\s*(fixed|absolute)\b/i.test(normalized)) {
-    rejected.push("Custom properties cannot store fixed or absolute positioning values.");
     return true;
   }
   return false;

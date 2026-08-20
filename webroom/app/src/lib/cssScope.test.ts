@@ -81,20 +81,44 @@ describe("scopeProfileCss", () => {
     expect(dataResult.css).toBe("");
   });
 
-  it("allows javascript: inside quoted content strings", () => {
+  it("allows javascript: inside quoted content strings and scopes the rule", () => {
     const result = scopeProfileCss(
-      '.x { content: "/* not a comment */ javascript:alert(1)"; color: red; }',
+      '.x { content: "javascript:alert(1)"; color: red; }',
       ".profile-scope--x",
     );
     expect(result.rejected).toHaveLength(0);
-    expect(result.css).toContain("content:");
+    expect(result.css).toContain('content: "javascript:alert(1)"');
+    expect(result.css).toContain(".profile-scope--x .x");
+  });
+
+  it("rejects url(javascript:...) while preserving harmless quoted content", () => {
+    const result = scopeProfileCss('a { background: url(javascript:alert(1)); }', ".profile-scope--x");
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.css).toBe("");
+  });
+
+  it("rejects position var() indirection without blocking custom property declarations", () => {
+    const overlay = scopeProfileCss(".trap { --overlay: fixed; position: var(--overlay); }", ".profile-scope--x");
+    expect(overlay.rejected.some((r) => r.toLowerCase().includes("position"))).toBe(true);
+    expect(overlay.css).toBe("");
+
+    const customOnly = scopeProfileCss(".safe { --position: fixed; color: red; }", ".profile-scope--x");
+    expect(customOnly.rejected).toHaveLength(0);
+    expect(customOnly.css).toContain("--position: fixed");
+  });
+
+  it("does not let comment braces corrupt later emitted rules", () => {
+    const result = scopeProfileCss(
+      ".first { color: red; } /* } */ .second { color: blue; }",
+      ".profile-scope--void",
+    );
+    expect(result.rejected).toHaveLength(0);
+    expect(result.css).toContain(".profile-scope--void .first");
+    expect(result.css).toContain(".profile-scope--void .second");
   });
 
   it("rejects position via custom property", () => {
-    const result = scopeProfileCss(
-      ":root { --overlay: fixed; } .trap { position: var(--overlay); }",
-      ".profile-scope--x",
-    );
+    const result = scopeProfileCss(".trap { --overlay: fixed; position: var(--overlay); }", ".profile-scope--x");
     expect(result.rejected.some((r) => r.toLowerCase().includes("position"))).toBe(true);
     expect(result.css).toBe("");
   });

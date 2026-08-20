@@ -2,7 +2,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createUser } from "./auth";
 import { resetDbForTests } from "./db";
 import { savePageDocument, setPublished, setVisibility } from "./pageDocument";
-import { exportLocalProfile, FederationError, followRemoteProfile, isPrivateHost } from "./federation";
+import {
+  exportLocalProfile,
+  FederationError,
+  followRemoteProfile,
+  isIpLiteral,
+  isPrivateHost,
+  validateFederationProfileUrl,
+  validateFederationResolvedAddresses,
+  FEDERATION_OUTBOUND_FETCH_POLICY,
+} from "./federation";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
 
@@ -69,18 +78,57 @@ describe("followRemoteProfile", () => {
   });
 });
 
+describe("validateFederationProfileUrl", () => {
+  it("accepts https URLs with public hostnames", () => {
+    const url = validateFederationProfileUrl("https://example.com/@alice");
+    expect(url.hostname).toBe("example.com");
+  });
+});
+
+describe("validateFederationResolvedAddresses", () => {
+  it("rejects private resolved addresses for public hostnames", () => {
+    expect(() => validateFederationResolvedAddresses("evil.example", ["127.0.0.1"])).toThrow(
+      FederationError,
+    );
+  });
+});
+
+describe("FEDERATION_OUTBOUND_FETCH_POLICY", () => {
+  it("requires manual redirects for future outbound fetches", () => {
+    expect(FEDERATION_OUTBOUND_FETCH_POLICY.redirect).toBe("manual");
+    expect(FEDERATION_OUTBOUND_FETCH_POLICY.maxRedirects).toBe(0);
+    expect(FEDERATION_OUTBOUND_FETCH_POLICY.revalidateEachRedirect).toBe(true);
+  });
+});
+
+describe("isIpLiteral", () => {
+  it("detects IPv4 and IPv6 literals only", () => {
+    expect(isIpLiteral("127.0.0.1")).toBe(true);
+    expect(isIpLiteral("::1")).toBe(true);
+    expect(isIpLiteral("fdroid.example.com")).toBe(false);
+  });
+});
+
 describe("isPrivateHost", () => {
   it.each([
     ["localhost", true],
     ["127.0.0.1", true],
+    ["127.1", true],
+    ["0.0.0.0", true],
+    ["0.1.2.3", true],
     ["10.1.2.3", true],
     ["192.168.0.5", true],
     ["172.20.0.1", true],
-    ["169.254.1.1", true],
+    ["169.254.169.254", true],
     ["100.64.0.1", true],
+    ["224.0.0.1", true],
     ["[::1]", true],
+    ["::", true],
+    ["::1", true],
+    ["fc00::1", true],
+    ["fd00::1", true],
     ["fe80::1", true],
-    ["fe80::abcd", true],
+    ["febf::1", true],
     ["::ffff:127.0.0.1", true],
     ["printer.local", true],
     ["fdroid.example.com", false],

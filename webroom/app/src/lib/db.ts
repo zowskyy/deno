@@ -69,7 +69,7 @@ function restoreLegacyInstalledPluginsTable(db: DatabaseSync): void {
 }
 
 /** Upgrade legacy global plugin installs to per-user ownership. */
-function migrateInstalledPluginsIfNeeded(db: DatabaseSync): void {
+export function migrateInstalledPluginsIfNeeded(db: DatabaseSync): void {
   const legacyTable = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'installed_plugins'")
     .get() as { name: string } | undefined;

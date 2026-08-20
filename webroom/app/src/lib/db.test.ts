@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { createUser } from "./auth";
-import { ensureAppealsUniqueIndex, getDb, reconcileDuplicateOpenAppeals, resetDbForTests, runMigrations } from "./db";
+import { ensureAppealsUniqueIndex, getDb, migrateInstalledPluginsIfNeeded, reconcileDuplicateOpenAppeals, resetDbForTests, runMigrations } from "./db";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
 
@@ -173,5 +173,71 @@ describe("installed_plugins migration", () => {
     expect(count.c).toBe(1);
     const slug = db.prepare("SELECT slug FROM installed_plugins LIMIT 1").get() as { slug: string };
     expect(slug.slug).toBe("quote-card");
+  });
+
+  it("rolls back and preserves legacy data when row copy fails", () => {
+    resetDbForTests();
+    const db = getDb();
+    db.exec("DROP TABLE IF EXISTS installed_plugins");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL
+      )`,
+    );
+    createUser("legacyowner", "correct-horse-battery");
+    db.prepare(
+      "INSERT INTO installed_plugins (id, slug, manifest_json, installed_at) VALUES (?, ?, ?, ?)",
+    ).run("legacy-plugin", "quote-card", '{"name":"Quote"}', "2025-01-01T00:00:00.000Z");
+
+    const originalPrepare = db.prepare.bind(db);
+    vi.spyOn(db, "prepare").mockImplementation((sql: string) => {
+      const stmt = originalPrepare(sql);
+      if (sql.includes("INSERT INTO installed_plugins (id, user_id")) {
+        return {
+          ...stmt,
+          run: () => {
+            throw new Error("simulated copy failure");
+          },
+        } as ReturnType<typeof db.prepare>;
+      }
+      return stmt;
+    });
+
+    expect(() => migrateInstalledPluginsIfNeeded(db)).toThrow("simulated copy failure");
+    expect(columnExists(db, "installed_plugins", "user_id")).toBe(false);
+    const count = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
+    expect(count.c).toBe(1);
+    vi.restoreAllMocks();
+  });
+
+  it("is idempotent after a successful migration", () => {
+    resetDbForTests();
+    const db = getDb();
+    db.exec("DROP TABLE IF EXISTS installed_plugins");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL
+      )`,
+    );
+    createUser("legacyowner", "correct-horse-battery");
+    db.prepare(
+      "INSERT INTO installed_plugins (id, slug, manifest_json, installed_at) VALUES (?, ?, ?, ?)",
+    ).run("legacy-plugin", "quote-card", '{"name":"Quote"}', "2025-01-01T00:00:00.000Z");
+
+    runMigrations(db);
+    const afterFirst = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
+
+    runMigrations(db);
+    const afterSecond = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
+
+    expect(afterFirst.c).toBe(1);
+    expect(afterSecond.c).toBe(1);
+    expect(columnExists(db, "installed_plugins", "user_id")).toBe(true);
   });
 });

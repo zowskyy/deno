@@ -9,7 +9,8 @@ import {
 } from "./sharedThemes";
 import { createUser } from "./auth";
 import { defaultPageDocument, savePageDocument } from "./pageDocument";
-import { resetDbForTests } from "./db";
+import { resetDbForTests, getDb } from "./db";
+import { listModeratorLogs } from "./moderation";
 
 process.env.WEBROOM_DB_PATH = ":memory:";
 
@@ -50,5 +51,34 @@ describe("sharedThemes", () => {
     expect(reviewThemeReport(report!.id, mod.id, "reviewed", "first")).toBe(true);
     expect(reviewThemeReport(report!.id, mod.id, "dismissed", "stale")).toBe(false);
     expect(listOpenThemeReports()).toHaveLength(0);
+  });
+
+  it("persists the same normalized moderator note in the database and audit log", () => {
+    ensureSeedSharedThemes();
+    const reporter = createUser("voidarcade", "correct-horse-battery");
+    const mod = createUser("moduser", "correct-horse-battery");
+    const [theme] = listSharedThemes();
+    const db = getDb();
+
+    reportTheme(theme!.id, reporter.id, "inappropriate");
+    const [report] = listOpenThemeReports();
+    expect(reviewThemeReport(report!.id, mod.id, "reviewed", "  trimmed note  ")).toBe(true);
+
+    const stored = db
+      .prepare("SELECT moderator_note FROM theme_reports WHERE id = ?")
+      .get(report!.id) as { moderator_note: string | null };
+    const [log] = listModeratorLogs(1);
+    expect(stored.moderator_note).toBe("trimmed note");
+    expect(log?.detail).toBe(`reportId:${report!.id} — trimmed note`);
+
+    reportTheme(theme!.id, reporter.id, "still bad");
+    const [blankReport] = listOpenThemeReports();
+    expect(reviewThemeReport(blankReport!.id, mod.id, "dismissed", "   ")).toBe(true);
+    const blankStored = db
+      .prepare("SELECT moderator_note FROM theme_reports WHERE id = ?")
+      .get(blankReport!.id) as { moderator_note: string | null };
+    const blankLog = listModeratorLogs(10).find((entry) => entry.detail.startsWith(`reportId:${blankReport!.id}`));
+    expect(blankStored.moderator_note).toBeNull();
+    expect(blankLog?.detail).toBe(`reportId:${blankReport!.id}`);
   });
 });

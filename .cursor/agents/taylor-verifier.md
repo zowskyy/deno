@@ -38,14 +38,14 @@ All three must succeed. Lint warnings are acceptable only if pre-existing and do
 ## Optional deep checks (orchestrator may request)
 
 ```bash
-# Docstring coverage in lib and app source (local scan)
+# Docstring coverage in src/lib only (local scan)
 node -e "
 const fs=require('fs'),path=require('path');
 function walk(d,f=[]){for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name);if(e.isDirectory()&&e.name!=='node_modules')walk(p,f);else if(/\\.(ts|tsx)$/.test(e.name)&&!/\\.test\\./.test(e.name))f.push(p)}return f}
-function isExportLine(line){return /^(export default (async )?function|export default class|export (async )?function|export class|export interface|export type|export const)\\b/.test(line.trim())}
+function isExportLine(line){return /^(export default (async )?function|export default class|export (async )?function|export class|export interface|export type|export const|export enum)\\b/.test(line.trim())}
 function hasDoc(lines,i){let j=i-1;while(j>=0&&lines[j].trim()==='')j--;for(let k=j;k>=Math.max(0,j-15);k--){const t=lines[k].trim();if(t.startsWith('/**'))return true;if(t.endsWith('*/')&&!t.startsWith('/**'))return false;if(isExportLine(lines[k]))break}return false}
 let t=0,m=0;for(const file of walk('src/lib')){const lines=fs.readFileSync(file,'utf8').split('\\n');for(let i=0;i<lines.length;i++){if(isExportLine(lines[i])){t++;if(!hasDoc(lines,i))m++}}}
-console.log('Docstring coverage:', ((t-m)/t*100).toFixed(2)+'%', '('+(t-m)+'/'+t+')');
+console.log('Docstring coverage (src/lib only):', ((t-m)/t*100).toFixed(2)+'%', '('+(t-m)+'/'+t+')');
 "
 ```
 

@@ -36,7 +36,7 @@ Also read: `.cursor/agents/taylor-implementer.md` feature requirements for the a
 - [ ] **Uploads** — MIME allowlist enforced server-side; path traversal impossible; size limits; auth required for upload; request body read is bounded before multipart parse (413 on oversize, 400 on malformed multipart)
 - [ ] **Embeds** — only allowlisted Spotify/YouTube; sandboxed iframes; no arbitrary `src`
 - [ ] **DMs** — block enforcement; rate limits; no message content in logs
-- [ ] **Federation** — remote JSON validated; no SSRF on import URL (block private IPs including IPv6 link-local and IPv4-mapped literals, file://); DNS resolution and redirect chains must not reach private addresses
+- [ ] **Federation** — HTTPS-only remote profile URLs; block private/link-local/metadata IP literals at validation; before any outbound fetch DNS-resolve hostnames and reject unsafe addresses; use `redirect: manual` (or bounded manual follow) and revalidate URL + DNS on every redirect hop
 - [ ] **Plugins** — manifest validated; no arbitrary code execution; unknown types fail closed
 - [ ] **AI** — output validated through `parsePageDocument`; no auto-publish; API key server-only
 - [ ] **Moderation** — atomic review functions; transactions where status + side effect must match
