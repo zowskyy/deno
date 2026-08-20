@@ -200,6 +200,10 @@ export function getDb(): DatabaseSync {
   dbInstance = new DatabaseSync(path);
   dbInstance.exec("PRAGMA foreign_keys = ON;");
   dbInstance.exec("PRAGMA journal_mode = WAL;");
+  // Let concurrent BEGIN IMMEDIATE transactions (rate limiting, appeal and
+  // report review) wait for a held write lock instead of failing instantly
+  // with SQLITE_BUSY under normal contention.
+  dbInstance.exec("PRAGMA busy_timeout = 5000;");
   migrate(dbInstance);
   return dbInstance;
 }
