@@ -16,8 +16,16 @@ class TestCapNetAdminCheck:
         import probe.controller_daemon as daemon_mod
         status = tmp_path / "status"
         status.write_text("CapEff:\t0000000000000000\n", encoding="ascii")
-        monkeypatch.setattr(daemon_mod, "_has_cap_net_admin", lambda: False)
+        monkeypatch.setattr(daemon_mod, "_PROC_STATUS_PATH", str(status))
         assert not daemon_mod._has_cap_net_admin()
+
+    def test_fake_proc_status_with_cap_net_admin(self, tmp_path, monkeypatch):
+        import probe.controller_daemon as daemon_mod
+        status = tmp_path / "status"
+        # bit 12 set (CAP_NET_ADMIN)
+        status.write_text("CapEff:\t0000000000001000\n", encoding="ascii")
+        monkeypatch.setattr(daemon_mod, "_PROC_STATUS_PATH", str(status))
+        assert daemon_mod._has_cap_net_admin()
 
 
 class TestRunObserveOnly:
