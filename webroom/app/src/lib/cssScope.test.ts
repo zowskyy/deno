@@ -114,6 +114,29 @@ describe("scopeProfileCss", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("rejects escaped blocked selectors", () => {
+    const iframe = scopeProfileCss("\\69 frame { display: none; }", ".profile-scope--x");
+    expect(iframe.rejected.some((r) => r.includes("Blocked selector"))).toBe(true);
+    expect(iframe.css).toBe("");
+
+    const studioId = scopeProfileCss("#\\73tudio { display: none; }", ".profile-scope--x");
+    expect(studioId.rejected.some((r) => r.includes("Blocked selector"))).toBe(true);
+    expect(studioId.css).toBe("");
+
+    const topBar = scopeProfileCss(".\\74 op-bar { display: none; }", ".profile-scope--x");
+    expect(topBar.rejected.some((r) => r.includes("Blocked selector"))).toBe(true);
+    expect(topBar.css).toBe("");
+  });
+
+  it("rejects escaped blocked selectors inside @media rules", () => {
+    const result = scopeProfileCss(
+      "@media screen { \\69 frame { display: none; } }",
+      ".profile-scope--x",
+    );
+    expect(result.rejected.some((r) => r.includes("Blocked selector"))).toBe(true);
+    expect(result.css).toBe("");
+  });
+
   it("allows @media prefers-reduced-motion", () => {
     const result = scopeProfileCss(
       "@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }",

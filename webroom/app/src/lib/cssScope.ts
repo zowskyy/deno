@@ -21,7 +21,17 @@ const GENERAL_PATTERNS: RegExp[] = [
 ];
 
 /** Selectors that must not appear in scoped profile CSS. */
-const BLOCKED_SELECTORS = /\b(html|body|:root|iframe|dialog|script|\.top-bar|\.studio-|#studio)\b/i;
+const BLOCKED_TAG_SELECTORS = /\b(html|body|:root|iframe|dialog|script)\b/i;
+
+/** Return true when a canonicalized selector targets blocked tags, ids, or classes. */
+function isBlockedSelector(selector: string): boolean {
+  const canonical = canonicalizeCss(selector);
+  if (BLOCKED_TAG_SELECTORS.test(canonical)) return true;
+  if (/#studio\b/i.test(canonical)) return true;
+  if (/(?:^|[\s,>+~])\.top-bar\b/i.test(canonical)) return true;
+  if (/(?:^|[\s,>+~])\.studio-/i.test(canonical)) return true;
+  return false;
+}
 
 /** Maximum allowed custom CSS length in characters. */
 const MAX_CSS_LENGTH = 8000;
@@ -219,7 +229,7 @@ export function scopeProfileCss(raw: string, scopeClass: string): CssScopeResult
     const selector = ruleMatch[1]!.trim();
     const body = ruleMatch[2]!.trim();
 
-    if (BLOCKED_SELECTORS.test(selector)) {
+    if (isBlockedSelector(selector)) {
       rejected.push(`Blocked selector: ${selector}`);
       continue;
     }
@@ -267,7 +277,7 @@ function scopeSelectors(block: string, scopeClass: string, rejected: string[]): 
     const ruleMatch = rule.trim().match(/^([^{]+)\{([^}]*)\}$/);
     if (!ruleMatch) continue;
     const selector = ruleMatch[1]!.trim();
-    if (BLOCKED_SELECTORS.test(selector)) {
+    if (isBlockedSelector(selector)) {
       rejected.push(`Blocked selector: ${selector}`);
       continue;
     }
