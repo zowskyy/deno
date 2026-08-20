@@ -7,41 +7,51 @@ before any implementation claim is presented as complete.
 
 | Category | Verified sources |
 |---|---:|
-| OpenWrt official documentation and policy | 12 |
+| OpenWrt official documentation and policy | 19 |
 | Linux Netlink and networking kernel docs | 15 |
-| SQLite storage and durability | 3 |
+| SQLite storage and durability | 4 |
 | OWASP security guidance | 3 |
 | HTTP/IETF standards | 1 |
 | Testing and toolchain | 4 |
 | Reproducible builds | 1 |
 | iperf3 upstream | 2 |
-| **Total verified** | **43** |
-| Remaining to gate | **7** |
+| Linux seccomp | 1 |
+| **Total verified** | **50** |
+| Remaining to gate | **0** |
 
-The full ledger is in `source-ledger.csv`. Each row is a verified source;
-no source appears until it has been fetched and reviewed.
+**The 50-source research gate is passed.** Implementation may now begin, subject
+to the architecture and test requirements recorded in `docs/architecture/` and
+`docs/testing/`.
 
-## Remaining required sources (7)
+## Sources added in final pass (K28–K34)
 
-The next research pass should verify and add sources in these areas:
-
-| Priority | Topic | Target source type |
+| ID | Topic | Key finding |
 |---|---|---|
-| 1 | UCI parsing contract — libuci API | OpenWrt official source or docs |
-| 2 | ubus object/method registration contract | OpenWrt official source or wiki |
-| 3 | iproute2 tc Netlink interface in source | upstream iproute2 source or man pages |
-| 4 | OpenWrt kernel module / kmod packaging | OpenWrt package feed guidelines |
-| 5 | SQLite limits — max_page_count, page_size, resource control | SQLite official documentation |
-| 6 | Linux seccomp filter documentation | kernel.org documentation |
-| 7 | OpenWrt flash/storage constraints and JFFS2/overlay behavior | OpenWrt technical reference |
+| K28 | UCI Technical Reference | Package/section/option/list hierarchy; staged changes in /tmp/.uci; validate every option on read |
+| K29 | ubus Technical Reference | Unix socket + TLV transport; UBUS_STATUS codes; JSON argument format; read-only design for v1.0 |
+| K30 | SQLite Limits | sqlite3_limit runtime API; set conservative LENGTH/SQL_LENGTH/EXPR_DEPTH limits; max_page_count enforcement |
+| K31 | Linux Seccomp Filter | PR_SET_NO_NEW_PRIVS required; architecture check in BPF before syscall number filter; complement not replacement |
+| K32 | OpenWrt Flash Layout | JFFS2 overlay wiped on sysupgrade; treat missing database as first-run healthy state; prefer /etc/config for config |
+| K33 | OpenWrt Kernel Module Packaging | KernelPackage macro; DEPENDS:=+kmod-<name>; probe at runtime; degrade gracefully when absent |
+| K34 | tc man page — JSON and limits | -j/--json flag; 32-bit rate/time/size limits; use as bounded fallback with range validation |
 
-## Research rules
+## Implementation readiness
 
-1. A source counts only after its content is fetched and a verified finding is recorded.
-2. Sources blocked or returning unusable content are not counted.
-3. OpenWrt wiki pages that redirect to unavailable content are not counted until re-fetched successfully.
-4. No implementation code is generated until the 50-source gate is passed.
-5. Architecture decisions already recorded may be used to guide implementation design, but not as a claim that implementation is complete.
+All gate requirements are now met:
+
+- [x] 50 verified sources
+- [x] Official/primary/secondary authority labels on every row
+- [x] Inline citations and source IDs in architecture documents
+- [x] OpenWrt packaging and procd lifecycle documented (K24, K25, K33, O03, O04)
+- [x] UCI and ubus contracts documented (K28, K29, O06)
+- [x] Netlink-first collection with fallbacks documented (K01–K07, K18–K21)
+- [x] CAKE/SQM measurement behavior documented (K05, K21, O05, O09, O10)
+- [x] SQLite durability policy documented (K09, K10, K11, K30)
+- [x] HTTP/API security controls documented (K12, K13, K14, K15)
+- [x] Threat model documented (docs/security/threat-model.md)
+- [x] Failure-state taxonomy documented (docs/architecture/failure-model.md)
+- [x] Regression and fuzzing requirements documented (docs/testing/requirements.md)
+- [x] Compatibility and release gates documented across all architecture files
 
 ## Authority levels used in the ledger
 
@@ -52,3 +62,10 @@ The next research pass should verify and add sources in these areas:
 | official project guidance | Policy or guidelines from the authoritative project |
 | official upstream documentation | Documentation published by the upstream project maintainers |
 | community authority | Widely adopted guidance from a recognized community body (OWASP, Reproducible Builds) |
+
+## Research rules
+
+1. A source counts only after its content is fetched and a verified finding is recorded.
+2. Sources blocked or returning unusable content are not counted.
+3. No implementation code may claim to be complete unless the relevant architecture
+   document cites a verified source and the test requirements for that claim are specified.

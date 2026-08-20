@@ -1,6 +1,6 @@
 # Service Lifecycle
 
-**Sources**: K24, K25, O03
+**Sources**: K24, K25, K31, O03
 
 ## procd integration
 
@@ -63,20 +63,42 @@ If a future feature requires elevated privilege, it must be packaged as a
 separate, explicitly privileged component, not by raising the daemon's
 privilege level.
 
-## Jail and isolation (future)
+## Jail and isolation (future, K31)
 
 The procd shell API supports `jail`, `seccomp`, `no_new_privs`, and
 filesystem/network namespace isolation. These must be evaluated before
-enabling:
+enabling.
 
-- Netlink sockets must remain accessible inside the jail.
-- `/sys/class/net` and `/proc/net` paths must be accessible if sysfs/procfs
-  fallbacks are used.
-- UCI configuration path must be accessible.
+### Seccomp
 
-A jail that blocks required paths converts a healthy service into a
-permanently degraded one without a visible error. Jail configuration is
-deferred to a post-v1.0 security hardening pass.
+Linux seccomp BPF filters restrict which syscalls a process may invoke.
+Key constraints from the kernel documentation (K31):
+
+- `PR_SET_NO_NEW_PRIVS` must be set before installing a filter without
+  `CAP_SYS_ADMIN`. procd's `no_new_privs` parameter does this.
+- The BPF program must check the architecture before filtering on syscall
+  numbers, or it can be bypassed across calling conventions.
+- Seccomp is a complement to least-privilege design, not a replacement.
+  A filter must be based on an audit of actually required syscalls.
+
+Required syscalls to preserve (non-exhaustive, must be audited):
+
+```
+socket (AF_NETLINK)
+bind, send, recv (Netlink)
+open, read, close (sysfs/procfs fallback, UCI config, SQLite)
+execve (controlled utility invocation, if used)
+wait4 (child process reaping)
+clock_gettime (monotonic timestamps)
+```
+
+Before enabling seccomp or a jail, run the daemon under `strace` on a
+representative workload and record every distinct syscall. The filter
+allowlist must be derived from that audit.
+
+A jail or seccomp filter that blocks required operations converts a healthy
+service into a permanently degraded one without a visible error. Jail and
+seccomp configuration are deferred to a post-v1.0 security hardening pass.
 
 ## Configuration triggers
 
