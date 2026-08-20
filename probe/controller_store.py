@@ -48,6 +48,17 @@ class ControlEvent:
     proposal: dict
 
 
+@dataclass(frozen=True)
+class PendingProposal:
+    """A stored proposal the actuator has not yet resolved (applied=0)."""
+
+    event_id: str
+    interface_name: str
+    ifindex: int
+    proposal: dict
+    proposal_sha256: str
+
+
 class ControllerStore:
     def __init__(self, path: str | Path) -> None:
         self._path = str(path)
@@ -120,3 +131,86 @@ class ControllerStore:
             conn.close()
 
         return event_id
+
+    def get_pending_proposal(self, interface_name: str) -> PendingProposal | None:
+        """Return the newest unresolved proposal_ready row for *interface_name*.
+
+        Unresolved means applied=0 — the actuator has not yet acted on it.
+        Returns None if there is nothing pending.
+        """
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT event_id, interface_name, ifindex, proposal_json, proposal_sha256
+                FROM control_events
+                WHERE interface_name = ? AND state_to = 'proposal_ready' AND applied = 0
+                ORDER BY created_at_mono_ns DESC
+                LIMIT 1
+                """,
+                (interface_name,),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if row is None:
+            return None
+        event_id, iface, ifindex, proposal_json, proposal_sha256 = row
+        return PendingProposal(
+            event_id=event_id,
+            interface_name=iface,
+            ifindex=ifindex,
+            proposal=json.loads(proposal_json),
+            proposal_sha256=proposal_sha256,
+        )
+
+    def has_unresolved_pending(self, interface_name: str) -> bool:
+        """True if *interface_name* has an applied change awaiting resolution.
+
+        "Unresolved" means applied=1 but neither confirmed nor
+        rollback_triggered has been recorded yet — enforces the "one
+        pending change maximum per interface" invariant as a storage
+        fact, not just a policy check.
+        """
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT 1 FROM control_events
+                WHERE interface_name = ? AND applied = 1
+                  AND confirmed = 0 AND rollback_triggered = 0
+                LIMIT 1
+                """,
+                (interface_name,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return row is not None
+
+    def mark_applied(self, event_id: str) -> None:
+        self._set_flag(event_id, "applied")
+
+    def mark_confirmed(self, event_id: str) -> None:
+        self._set_flag(event_id, "confirmed")
+
+    def mark_rollback_triggered(self, event_id: str) -> None:
+        self._set_flag(event_id, "rollback_triggered")
+
+    def _set_flag(self, event_id: str, column: str) -> None:
+        assert column in ("applied", "confirmed", "rollback_triggered")
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                f"UPDATE control_events SET {column} = 1 WHERE event_id = ?",
+                (event_id,),
+            )
+            if cur.rowcount == 0:
+                conn.rollback()
+                raise ValueError(f"no control_events row with event_id={event_id!r}")
+            conn.commit()
+        except sqlite3.Error:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()

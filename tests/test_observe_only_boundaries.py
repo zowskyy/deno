@@ -36,6 +36,25 @@ def test_observe_only_modules_have_no_forbidden_tokens() -> None:
             assert token not in normalized, f"{path!r} contains forbidden token {token!r}"
 
 
+def test_actuator_client_does_not_import_observe_only_daemon() -> None:
+    # Privilege separation must hold in both directions: the actuator
+    # (CAP_NET_ADMIN) and the observe-only daemon (no CAP_NET_ADMIN) are
+    # separate processes on purpose and must never import each other.
+    # (Prose mentioning controller_daemon.py in comments/docstrings is
+    # fine — only real import statements are forbidden.)
+    tree = ast.parse(_source("probe/actuator_client.py"), filename="probe/actuator_client.py")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                assert "controller_daemon" not in alias.name
+        elif isinstance(node, ast.ImportFrom):
+            assert node.module is None or "controller_daemon" not in node.module
+
+    source = _source("probe/actuator_client.py")
+    for token in ("os.system(", "os.popen(", "shell=True"):
+        assert token not in source, f"actuator_client.py contains forbidden token {token!r}"
+
+
 def test_qdisc_fingerprint_references_netlink_and_not_sysfs() -> None:
     source = _source("probe/qdisc_fingerprint.py")
     assert "RTM_GETQDISC" in source, "fingerprint docstring must mention RTM_GETQDISC"

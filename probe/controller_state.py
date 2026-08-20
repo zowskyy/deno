@@ -1,10 +1,11 @@
-"""Observe-only controller state machine transition guard.
+"""Controller state machine transition guard.
 
-Enforces the legal transition graph for the v1.0 controller. Actuation
-states (APPLYING, PENDING_CONFIRMATION, CONFIRMED, ROLLING_BACK, COOLDOWN)
-are deliberately not modeled here yet — they are introduced only once the
-actuation design is approved. This module governs the observe-only subset
-of the state machine described in the plan.
+Covers both the observe-only subset (DISABLED, OBSERVE_ONLY, OBSERVING,
+PROPOSAL_READY, FROZEN) and the actuation extension approved in
+docs/architecture/actuation-design.md (APPLYING, PENDING_CONFIRMATION,
+CONFIRMED, ROLLING_BACK, COOLDOWN). FROZEN remains reachable from any
+state and is a one-way trap except for the explicit operator-cleared
+FROZEN -> OBSERVE_ONLY transition.
 """
 
 from __future__ import annotations
@@ -18,8 +19,21 @@ class ControllerState(StrEnum):
     OBSERVE_ONLY = "observe_only"
     OBSERVING = "observing"
     PROPOSAL_READY = "proposal_ready"
+    APPLYING = "applying"
+    PENDING_CONFIRMATION = "pending_confirmation"
+    CONFIRMED = "confirmed"
+    ROLLING_BACK = "rolling_back"
+    COOLDOWN = "cooldown"
     FROZEN = "frozen"
 
+
+_ACTUATION_STATES = (
+    ControllerState.APPLYING,
+    ControllerState.PENDING_CONFIRMATION,
+    ControllerState.CONFIRMED,
+    ControllerState.ROLLING_BACK,
+    ControllerState.COOLDOWN,
+)
 
 _ALLOWED: dict[ControllerState, set[ControllerState]] = {
     ControllerState.DISABLED: {ControllerState.OBSERVE_ONLY, ControllerState.FROZEN},
@@ -29,7 +43,24 @@ _ALLOWED: dict[ControllerState, set[ControllerState]] = {
         ControllerState.OBSERVE_ONLY,
         ControllerState.FROZEN,
     },
-    ControllerState.PROPOSAL_READY: {ControllerState.OBSERVE_ONLY, ControllerState.FROZEN},
+    ControllerState.PROPOSAL_READY: {
+        ControllerState.APPLYING,
+        ControllerState.OBSERVE_ONLY,
+        ControllerState.FROZEN,
+    },
+    ControllerState.APPLYING: {
+        ControllerState.PENDING_CONFIRMATION,
+        ControllerState.ROLLING_BACK,
+        ControllerState.FROZEN,
+    },
+    ControllerState.PENDING_CONFIRMATION: {
+        ControllerState.CONFIRMED,
+        ControllerState.ROLLING_BACK,
+        ControllerState.FROZEN,
+    },
+    ControllerState.CONFIRMED: {ControllerState.COOLDOWN, ControllerState.FROZEN},
+    ControllerState.ROLLING_BACK: {ControllerState.COOLDOWN, ControllerState.FROZEN},
+    ControllerState.COOLDOWN: {ControllerState.OBSERVING, ControllerState.FROZEN},
     ControllerState.FROZEN: {ControllerState.OBSERVE_ONLY},
 }
 
@@ -54,6 +85,11 @@ def transition(
     if desired not in _ALLOWED.get(previous, set()):
         raise ValueError(f"illegal transition {previous!r} -> {desired!r}")
     return StateTransition(previous=previous, current=desired, reason_code=reason_code)
+
+
+def is_actuation_state(state: ControllerState) -> bool:
+    """True for states that only exist while an actuation is in flight."""
+    return state in _ACTUATION_STATES
 
 
 def move_or_hold(

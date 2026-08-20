@@ -1,16 +1,20 @@
 # Track A Actuation Design
 
-**Status: design only. No actuation code exists yet.** This document is the
-approval gate the plan requires before `probe/actuator_client.py` or any
-`tc qdisc change` code path is written. Everything shipped so far
-(`probe/rate_estimator.py`, `probe/controller_state.py`,
-`probe/controller_policy.py`, `probe/controller_store.py`,
-`probe/qdisc_fingerprint.py`, `probe/controller_daemon.py`) is observe-only:
-every path in `controller_policy.evaluate()` returns
-`actuation_status = "blocked"` or `"blocked_pending_actuation_design_approval"`
-and none of those modules import `subprocess`, touch Netlink mutation calls,
-or import an actuator client — enforced by
-`tests/test_observe_only_boundaries.py`.
+**Status: approved and implemented.** `probe/actuator_client.py` exists per
+this design — see "Implementation notes" at the end for what shipped and
+where it stayed strictly scoped down from the design below. The
+observe-only modules (`probe/rate_estimator.py`, `probe/controller_state.py`
+[observe-only subset], `probe/controller_policy.py`, `probe/controller_store.py`
+[audit-append path], `probe/qdisc_fingerprint.py`, `probe/controller_daemon.py`)
+still never import `probe/actuator_client.py` or touch `tc`/Netlink mutation —
+enforced by `tests/test_observe_only_boundaries.py`, which also asserts the
+reverse: the actuator never imports the observe-only daemon. Privilege
+separation is real, not just documented: `controller_policy.evaluate()`
+still only ever returns `actuation_status = "blocked"` or
+`"blocked_pending_actuation_design_approval"` — the controller process
+itself still never calls `tc` or the actuator directly; actuation only
+happens via `probe/actuator_client.apply_pending_proposal()` reading a
+persisted proposal row, run as its own privileged invocation.
 
 ## Why a separate process
 
@@ -230,9 +234,53 @@ staying green — before `probe/actuator_client.py` is merged:
 - A rollback that fails to verify transitions to `FROZEN`, not to a
   retry loop
 
-## Next steps
+## Implementation notes (post-approval)
 
-Implementation of `probe/actuator_client.py` begins only after this
-document is explicitly approved and the state-machine extension above is
-added to `probe/controller_state.py` with its own passing test suite,
-mirroring the process already used for the observe-only rollout.
+What shipped in `probe/actuator_client.py`, `probe/controller_state.py`
+(actuation states), and `probe/controller_store.py` (pending-proposal
+query/update methods), with `tests/test_actuator_client.py` covering the
+full required test list above:
+
+- **State machine**: `APPLYING`, `PENDING_CONFIRMATION`, `CONFIRMED`,
+  `ROLLING_BACK`, `COOLDOWN` added to `ControllerState` with the exact
+  transition graph specified above, plus `is_actuation_state()`.
+- **Store**: `get_pending_proposal()`, `has_unresolved_pending()`, and
+  `mark_applied()` / `mark_confirmed()` / `mark_rollback_triggered()`
+  give the actuator its read/write surface without it ever accepting a
+  proposal as a direct call argument — it only ever reads the newest
+  unresolved `proposal_ready` row for an interface.
+- **Validation**: `validate_proposal()` independently re-checks schema
+  version, qdisc kind, ifindex (against a freshly re-read fingerprint,
+  never a cached value), fingerprint match, unresolved-pending state,
+  bandwidth/RTT allowlist bounds, and expiry — exactly the "actuator
+  validation" list above, each as its own typed `ProposalValidationError`
+  reason code with its own test.
+- **Command construction**: `build_tc_change_command()` returns a fixed
+  `list[str]`; no shell string is ever built, verified by both a unit
+  test and the boundary-test's forbidden-token scan of the module source.
+- **Rollback**: reuses `probe.safety.RollbackController` directly rather
+  than reimplementing snapshot/apply/verify/restore — `make_save_cake_fn()`
+  and `make_apply_cake_fn()` adapt it to CAKE tc parameters instead of
+  UCI `sqm` config, matching the `Callable[[Path], bool]` /
+  `Callable[[Path], ApplyResult]` contracts `RollbackController` already
+  defines.
+- **Deliberate v1 scope narrowing** (not a spec violation, a documented
+  cut): only **egress** (`bandwidth_upload_mbit` + `rtt_ms`) is applied.
+  Ingress/download shaping normally requires an IFB redirect qdisc, which
+  is a separate, non-trivial mechanism this pass does not implement —
+  `bandwidth_download_mbit` is still validated as part of the proposal
+  schema shape but is not yet acted on. `qdisc_kind = "gp"` is explicitly
+  rejected (`unsupported_qdisc_kind`) since `sch_gp` has no implementation
+  until kqdisc gate B0 passes — this was already true of the schema, now
+  it's enforced at the one place that could otherwise silently no-op it.
+- **Privilege check inversion**: `require_cap_net_admin()` is the mirror
+  of `controller_daemon._has_cap_net_admin()`'s refusal check, implemented
+  independently (no shared helper) per the "each side enforces its own
+  boundary" principle — verified by `tests/test_observe_only_boundaries.py`
+  asserting the actuator never imports the observe-only daemon module.
+
+Not yet wired: a procd-managed invocation path for the actuator (it is a
+library today, called via `apply_pending_proposal()`, not yet its own
+deployed binary/init script) and download/ingress shaping. Both are
+natural next slices, each deserving their own focused review before
+shipping, not bundled into this pass.
