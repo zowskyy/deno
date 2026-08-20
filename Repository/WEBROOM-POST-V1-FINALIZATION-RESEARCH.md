@@ -2,7 +2,7 @@
 
 **Purpose:** Everything needed to continue from the current checkpoint and finalize the Webroom post-V1 feature set completely.  
 **Audience:** Product owner (vision/judgment) and engineering agents picking up this work.  
-**Last verified:** 2026-08-20 UTC · head `7992fa7` · PR [#9](https://github.com/zowskyy/deno/pull/9)
+**Last verified:** 2026-08-20 03:02 UTC · head `090d572` · PR [#9](https://github.com/zowskyy/deno/pull/9)
 
 ---
 
@@ -20,7 +20,7 @@ Webroom is a personal-homepage platform (modern MySpace) living in `webroom/app/
 - Self-hosting instance URL configuration
 - Allowlisted Spotify/YouTube embeds (sandboxed, no autoplay)
 
-**Current gate:** PR #9 is open, mergeable, tests green (220), CodeRabbit CI green — but the standing rule requires an **explicit “Actionable comments posted: 0”** formal review on head `7992fa7` before merge. A `@coderabbitai full review` was posted 2026-08-20 02:41 UTC; awaiting the formal zero-actionable paper trail.
+**Current gate:** PR #9 is open, mergeable, tests green (220), CodeRabbit CI green on `090d572` — but the standing rule requires an **explicit “Actionable comments posted: 0”** formal review before merge. `@coderabbitai full review` + `resume` posted 02:41–02:45 UTC (targeting `7992fa7`); CodeRabbit re-ran on `090d572` at 02:54 UTC with SUCCESS and no new inline findings, yet **no formal zero-actionable summary** has been posted (stale formal review #4977627012 still says “2 actionable”).
 
 **After merge:** Finalization is not “write more features” — it is verification, deployment, operator setup, branch cleanup, and optional repo separation. The product claims are already shipped in code.
 
@@ -33,7 +33,7 @@ Webroom is a personal-homepage platform (modern MySpace) living in `webroom/app/
 | Item | Value |
 |------|-------|
 | Active branch | `cursor/webroom-post-v1-features-207e` |
-| Head commit | `7992fa7` — `fix(webroom): address PR #9 merge blockers across federation, CSS, uploads, migration` |
+| Head commit | `090d572` — `docs: add Webroom post-V1 finalization research document` (feature code at `7992fa7`) |
 | Base branch | `claude/gateway-probe-mvp-ueca5r` |
 | PR | [#9](https://github.com/zowskyy/deno/pull/9) — open, not draft, **MERGEABLE** |
 | Superseded PRs | #8 (`cursor/coderabbit-followups-207e`) closed as superseded by #9 |
@@ -54,11 +54,12 @@ cd webroom/app && npm test && npm run lint && npm run build
 
 | Signal | Status |
 |--------|--------|
-| CI on `7992fa7` | SUCCESS — “Review completed” |
-| Inline comments | **23/23 marked ✅ Addressed** |
+| CI on `090d572` | SUCCESS — “Review completed” (02:54 UTC) |
+| CI on `7992fa7` | SUCCESS — “Review completed” (02:37 UTC) |
+| Inline comments | **23/23 marked ✅ Addressed** · **0 unaddressed** |
 | Formal review summaries | Last is **#4977627012** on older commit `3b9157d` — says “2 actionable” (stale) |
 | Paper trail requested | `@coderabbitai full review` + `@coderabbitai resume` posted 02:41–02:45 UTC |
-| Merge rule | **Do not merge** until explicit “Actionable comments posted: 0” on `7992fa7` |
+| Merge rule | **Do not merge** until explicit “Actionable comments posted: 0” formal summary |
 
 ### 2.4 Six merge-blocker workstreams (implemented in `7992fa7`)
 
@@ -277,7 +278,7 @@ Full threat model: `webroom/docs/security-model.md`
 ## 8. Critical path to merge (immediate)
 
 ```
-1. Wait for CodeRabbit full review on 7992fa7
+1. Wait for CodeRabbit formal zero-actionable summary (full review requested on `7992fa7`; CI green on `090d572` with no new findings)
    └─ Expect: "Actionable comments posted: 0"
    └─ If >0: fix minimally + regression test + push + re-ping
 
