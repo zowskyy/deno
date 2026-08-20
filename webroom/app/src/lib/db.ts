@@ -123,6 +123,22 @@ function migrateInstalledPluginsIfNeeded(db: DatabaseSync): void {
   }
 }
 
+/** Re-run deferred migrations after the first user account is created. */
+export function resumeDeferredMigrations(db: DatabaseSync): void {
+  const legacyTable = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'installed_plugins'")
+    .get() as { name: string } | undefined;
+  if (!legacyTable || columnExists(db, "installed_plugins", "user_id")) return;
+
+  const legacyCount = (db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number }).c;
+  if (legacyCount === 0) return;
+
+  migrateInstalledPluginsIfNeeded(db);
+  if (columnExists(db, "installed_plugins", "user_id") && !indexExists(db, "idx_installed_plugins_user")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(user_id, installed_at)");
+  }
+}
+
 /** Apply schema bootstrap and incremental migrations. */
 function migrate(db: DatabaseSync): void {
   migrateInstalledPluginsIfNeeded(db);

@@ -18,6 +18,8 @@ Specialist agents for Webroom work. The orchestrator delegates; workers run in *
 schema → lib (parallel) → api (parallel) → ui (parallel) → docs → audit → verify → merge
 ```
 
+Release order matches `.cursor/rules/audit-first-web-product.mdc`: adversarial audit before verifier gates, external review (CodeRabbit) before merge.
+
 ## Copy-paste handoff (orchestrator → any worker)
 
 ```markdown

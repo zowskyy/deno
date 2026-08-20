@@ -3,16 +3,7 @@ description: Audit-first workflow for security-sensitive Webroom changes — pla
 globs:
   - "webroom/app/**/*.{ts,tsx,js,jsx}"
   - "webroom/app/src/lib/**/*.sql"
-  - "webroom/app/**/*.test.ts"
-  - "webroom/app/**/*.test.tsx"
-  - "app/**/*.{ts,tsx,js,jsx}"
-  - "src/**/*.{ts,tsx,js,jsx}"
-  - "server/**/*.{ts,js}"
-  - "db/**/*.{ts,js,sql}"
-  - "migrations/**/*"
-  - "tests/**/*.{ts,tsx,js,jsx}"
-  - "**/*.{test,spec}.{ts,tsx,js,jsx}"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Audit-first operating rule
@@ -104,9 +95,11 @@ For every non-trivial change:
 3. **Approve** — user approves before any file edits.
 4. **Prove failure** — regression tests that reproduce the defect; confirm they fail on current branch.
 5. **Implement minimally** — smallest change that makes tests pass.
-6. **Verify** — focused tests, then lint, typecheck, build, relevant full suite.
-7. **Adversarial audit** — inspect diff for bypasses, races, auth regressions, partial writes, pagination instability, data loss.
+6. **Adversarial audit** — inspect diff for bypasses, races, auth regressions, partial writes, pagination instability, data loss.
+7. **Verify** — focused tests, then lint, typecheck, build, relevant full suite.
 8. **Commit** — one coherent reversible commit; request external review only after evidence is clean.
+
+This loop maps to Taylor waves: schema → lib → api → ui → docs → **audit** → **verify** → merge.
 
 ## Required Change Audit template
 

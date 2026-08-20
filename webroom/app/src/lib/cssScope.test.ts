@@ -71,6 +71,16 @@ describe("scopeProfileCss", () => {
     expect(result.css).toBe("");
   });
 
+  it("rejects quoted javascript: and data: values inside url()", () => {
+    const jsResult = scopeProfileCss('a { background: url("javascript:alert(1)"); }', ".profile-scope--x");
+    expect(jsResult.rejected.length).toBeGreaterThan(0);
+    expect(jsResult.css).toBe("");
+
+    const dataResult = scopeProfileCss("a { background: url('data:text/html,evil'); }", ".profile-scope--x");
+    expect(dataResult.rejected.length).toBeGreaterThan(0);
+    expect(dataResult.css).toBe("");
+  });
+
   it("allows javascript: inside quoted content strings", () => {
     const result = scopeProfileCss(
       '.x { content: "/* not a comment */ javascript:alert(1)"; color: red; }',

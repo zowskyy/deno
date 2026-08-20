@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { getDb } from "./db";
+import { getDb, resumeDeferredMigrations } from "./db";
 
 // Password hashing uses Node's built-in crypto.scrypt (no external
 // dependency, no native module to compile) rather than bcrypt/argon2
@@ -117,6 +117,8 @@ export function createUser(rawHandle: string, password: string): User {
     `INSERT INTO users (id, handle, handle_lower, password_hash, created_at)
      VALUES (?, ?, ?, ?, ?)`,
   ).run(id, handle, handle, passwordHash, createdAt);
+
+  resumeDeferredMigrations(db);
 
   return { id, handle, createdAt };
 }

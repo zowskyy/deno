@@ -149,4 +149,29 @@ describe("installed_plugins migration", () => {
     const count = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
     expect(count.c).toBe(1);
   });
+
+  it("migrates deferred legacy plugins when the first user is created", () => {
+    resetDbForTests();
+    const db = getDb();
+    db.exec("DROP TABLE IF EXISTS installed_plugins");
+    db.exec(
+      `CREATE TABLE installed_plugins (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        manifest_json TEXT NOT NULL,
+        installed_at TEXT NOT NULL
+      )`,
+    );
+    db.prepare(
+      "INSERT INTO installed_plugins (id, slug, manifest_json, installed_at) VALUES (?, ?, ?, ?)",
+    ).run("legacy-plugin", "quote-card", '{"name":"Quote"}', "2025-01-01T00:00:00.000Z");
+
+    createUser("firstuser", "correct-horse-battery");
+
+    expect(columnExists(db, "installed_plugins", "user_id")).toBe(true);
+    const count = db.prepare("SELECT COUNT(*) as c FROM installed_plugins").get() as { c: number };
+    expect(count.c).toBe(1);
+    const slug = db.prepare("SELECT slug FROM installed_plugins LIMIT 1").get() as { slug: string };
+    expect(slug.slug).toBe("quote-card");
+  });
 });

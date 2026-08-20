@@ -2,8 +2,14 @@
 // Personal Webspaces safety policy — CSS alone is not a complete security
 // boundary, but these rules close the obvious escape hatches.
 
-/** Patterns that always reject profile custom CSS. */
-const BLOCKED_PATTERNS: RegExp[] = [
+/** Patterns that reject dangerous url() values, including inside quoted strings. */
+const URL_VALUE_PATTERNS: RegExp[] = [
+  /url\s*\(\s*["']?\s*javascript:/i,
+  /url\s*\(\s*["']?\s*data:/i,
+];
+
+/** Patterns rejected only outside quoted string literals (e.g. harmless content values). */
+const GENERAL_PATTERNS: RegExp[] = [
   /@import\b/i,
   /@font-face\b/i,
   /@namespace\b/i,
@@ -11,8 +17,6 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /expression\s*\(/i,
   /-moz-binding/i,
   /behavior\s*:/i,
-  /url\s*\(\s*["']?\s*javascript:/i,
-  /url\s*\(\s*["']?\s*data:/i,
   /<\s*\/?\s*style/i,
 ];
 
@@ -116,9 +120,15 @@ function stripQuotedStrings(css: string): string {
 /** Scan canonical CSS for blocked patterns outside quoted strings. */
 function findBlockedPatterns(canonical: string): string[] {
   const rejected: string[] = [];
-  const scanTarget = stripQuotedStrings(canonical);
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(scanTarget)) {
+  const stripped = stripQuotedStrings(canonical);
+
+  for (const pattern of URL_VALUE_PATTERNS) {
+    if (pattern.test(canonical)) {
+      rejected.push(`Blocked pattern: ${pattern.source}`);
+    }
+  }
+  for (const pattern of GENERAL_PATTERNS) {
+    if (pattern.test(stripped)) {
       rejected.push(`Blocked pattern: ${pattern.source}`);
     }
   }
