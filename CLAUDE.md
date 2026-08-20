@@ -126,42 +126,19 @@ pilot testers see when they clone the repo for its README/install docs).
   point to (a published case study, a proven Phase 2 result) — not
   before there's something credible to fund.
 
-### Webroom
+### iofus (formerly Webroom)
 
-- A personal-homepage platform — make a page, give it a mood, publish
-  it safely, wander other people's pages without a feed or algorithm.
-  Full plan: `webroom/PLAN.md`.
-- **Doesn't have its own repo yet.** Tried to create one and hit a real
-  tool limitation (this session's GitHub access can't create new
-  repositories — `403 Resource not accessible by integration`), so the
-  plan lives in `webroom/PLAN.md` in this repo for now. Move it to a
-  dedicated `webroom` repo the moment one exists (small ask: the user
-  creating an empty repo at github.com/new takes a few clicks, no code
-  needed) — don't treat staying in `deno` as a permanent decision.
-- **Explicitly builds on the same engineering discipline as
-  gateway-probe** — structured/versioned documents, read-only-by-default
-  with explicit reversible mutation, schema validation, graceful
-  degradation, adversarial testing. See the "underlying layer" section
-  of `webroom/PLAN.md` for the concrete pattern-by-pattern mapping. Keep
-  applying that same discipline to Webroom's build, not a lighter
-  version of it.
-- **Privacy (visitor analytics) — decided: none.** No page views, referrers,
-  or visitor tracking for creators. Aligns with the anti-surveillance ethos.
-- **Sustainability**: ongoing standing consideration, not solved now —
-  same principle as gateway-probe. A hosted platform with human
-  moderation has real running costs; raise funding path again once
-  there's a real user base to point to.
-- **Webroom Phases 1–5 are complete** in `webroom/app` (Next.js/TypeScript,
-  `node:sqlite`, Zod-validated page documents, module registry, scoped
-  custom CSS, theme gallery). Signup → Make → Studio → publish → Explore
-  all work end-to-end. Release hardening includes visibility enforcement,
-  auth rate limits, community policy, appeals, and theme-report moderation.
-  **114 tests** passing as of the release build.
-- Friends (the mutual-accept graph) shipped as part of Phase 1, per the
-  plan's explicit call that it's core to the product, not a later
-  add-on.
-- Next session picking this up: run `npm install && npm run build` in
-  `webroom/app`, `npm test` for the suite, `npm run start` to run it
-  locally. `node:sqlite` is still an experimental Node API (tracked
-  deliberately — zero native-compile, zero external service dependency
-  — not an oversight).
+- Moved to its own dedicated repository: `zowskyy/iofus`. It no longer
+  lives in this repo — the `webroom/` directory here is retired; do not
+  add new Webroom/iofus work here.
+- Renamed from Webroom to **iofus** (a play on "Internet of Us"), marking
+  a direction as well as a rebrand: everyone gets a piece of the internet
+  to call their own (the page — already built, Phases 1–5 complete) *and*
+  a safe way to reach people beyond who they already know (planned Phase
+  6, "Ask iofus" — see `zowskyy/iofus`'s `PLAN.md`), grounded in the EU
+  Horizon-2020 WeNet "Internet of Us" research on diversity-aware social
+  interaction. No feed, no DMs, no algorithm — that stance is unchanged
+  by the rename.
+- Same engineering discipline as gateway-probe carries over unmodified in
+  the new repo: structured/versioned documents, schema validation,
+  graceful degradation, adversarial testing.

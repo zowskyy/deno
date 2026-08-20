@@ -1,16 +1,16 @@
 # deno
 
-This repository contains **two unrelated products** that share no code, users, or
-runtime dependencies. Each has its own directory, documentation, and audience —
-clone for one and ignore the other.
+This repository holds **gateway-probe**, an OpenWrt / Linux gateway diagnostic
+tool for operators measuring bufferbloat, CAKE, and link health. See
+`probe/`, `tests/`, and `deployment/`.
 
-| Product | Directory | Audience |
-|---|---|---|
-| **gateway-probe** | [`probe/`](probe/), [`tests/`](tests/), [`deployment/`](deployment/) | OpenWrt / Linux gateway operators measuring bufferbloat, CAKE, and link health |
-| **Webroom** | [`webroom/`](webroom/) | People who want a personal homepage — make a page, give it a mood, publish it, wander others' corners without a feed or algorithm. Full docs: [`webroom/README.md`](webroom/README.md) |
+This repo previously also held Webroom, a personal-homepage platform. It has
+since moved to its own dedicated repository and been renamed **iofus**
+(a play on "Internet of Us") — see
+[github.com/zowskyy/iofus](https://github.com/zowskyy/iofus). It shares no
+code, users, or runtime dependencies with gateway-probe.
 
-The rest of this file documents **gateway-probe** only. Webroom pilot users and
-contributors should go to [`webroom/README.md`](webroom/README.md) instead.
+The rest of this file documents **gateway-probe** only.
 
 ---
 
