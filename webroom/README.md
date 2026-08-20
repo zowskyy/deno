@@ -10,7 +10,7 @@ The core question is never *"what are you posting today?"* It's:
 
 > **What does your corner of the internet feel like?**
 
-```
+```text
 Make → Shape → Publish → Wander
 ```
 

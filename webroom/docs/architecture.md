@@ -10,7 +10,7 @@ Webroom is a Next.js 16 app (`webroom/app`) backed by `node:sqlite`. Every user 
 
 ## Data flow
 
-```
+```text
 User action (form/server action)
   → lib/*.ts validation (Zod, rate limits, auth)
   → SQLite (schema.sql)

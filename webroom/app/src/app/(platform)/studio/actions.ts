@@ -287,6 +287,11 @@ export async function installThemeAction(themeId: string): Promise<StudioActionR
 
   const working = stored.draftDocument ?? stored.document;
   const document = installThemeOnDocument(working, theme);
+
+  const cssError = validateDocumentCss(document, viewer.handle);
+  if (cssError) return { error: cssError };
+
+  const saved = saveDraftDocument(viewer.id, document);
   revalidateOwnerPaths(viewer.handle);
-  return { ok: true, document };
+  return { ok: true, document: saved };
 }

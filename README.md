@@ -6,34 +6,11 @@ clone for one and ignore the other.
 
 | Product | Directory | Audience |
 |---|---|---|
-| **Webroom** | [`webroom/`](webroom/) | People who want a personal homepage — make a page, give it a mood, publish it, wander others' corners without a feed or algorithm |
 | **gateway-probe** | [`probe/`](probe/), [`tests/`](tests/), [`deployment/`](deployment/) | OpenWrt / Linux gateway operators measuring bufferbloat, CAKE, and link health |
+| **Webroom** | [`webroom/`](webroom/) | People who want a personal homepage — make a page, give it a mood, publish it, wander others' corners without a feed or algorithm. Full docs: [`webroom/README.md`](webroom/README.md) |
 
----
-
-## Webroom
-
-**Make your corner of the internet. Wander into someone else's.**
-
-A personal homepage platform — not a feed, not a website builder. Pick a mood,
-fill your page with the things that are actually yours, publish at `/@yourname`,
-and discover other pages by wandering, tags, and friend links.
-
-**Full documentation:** [`webroom/README.md`](webroom/README.md) · **Product plan:** [`webroom/PLAN.md`](webroom/PLAN.md)
-
-### Quick start
-
-Requires Node.js ≥ 22.5 (for `node:sqlite`).
-
-```sh
-cd webroom/app
-npm install
-npm run build
-npm test          # optional — verify the suite
-npm run start     # http://localhost:3000
-```
-
-For local development with hot reload, use `npm run dev` instead of `build` + `start`.
+The rest of this file documents **gateway-probe** only. Webroom pilot users and
+contributors should go to [`webroom/README.md`](webroom/README.md) instead.
 
 ---
 
