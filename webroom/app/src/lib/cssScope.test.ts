@@ -76,6 +76,16 @@ describe("scopeProfileCss", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("maps a null escape (\\0) to the replacement character without throwing", () => {
+    const result = validateProfileCustomCss(".x { color: \\0; }", "testuser");
+    expect(result.ok).toBe(true);
+  });
+
+  it("maps a lone surrogate-half escape to the replacement character without throwing", () => {
+    const result = validateProfileCustomCss(".x { color: \\d800; }", "testuser");
+    expect(result.ok).toBe(true);
+  });
+
   it("allows @media prefers-reduced-motion", () => {
     const result = scopeProfileCss(
       "@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }",

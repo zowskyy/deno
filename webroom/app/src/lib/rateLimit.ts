@@ -42,7 +42,11 @@ export function checkRateLimit(key: string, maxCount: number): void {
       db.prepare("INSERT INTO rate_limits (key, count, window_start) VALUES (?, 1, ?)").run(key, new Date(now).toISOString());
     } else {
       const windowStart = new Date(row.window_start).getTime();
-      if (now - windowStart > WINDOW_MS) {
+      // A corrupt or unparseable window_start (NaN) must be treated as
+      // expired rather than silently falling through to the count check,
+      // which would otherwise lock the key at whatever count it last had.
+      const windowExpired = !Number.isFinite(windowStart) || now - windowStart >= WINDOW_MS;
+      if (windowExpired) {
         db.prepare("UPDATE rate_limits SET count = 1, window_start = ? WHERE key = ?").run(new Date(now).toISOString(), key);
       } else if (row.count >= maxCount) {
         limitError = new RateLimitError(Math.ceil((WINDOW_MS - (now - windowStart)) / 1000));
